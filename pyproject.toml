@@ -28,9 +28,6 @@ dependencies = [
   "scikit-learn",
 ]
 
-[tool.setuptools]
-packages = ["find:"]
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["TnT*"]
