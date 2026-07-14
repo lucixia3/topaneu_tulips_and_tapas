@@ -5,7 +5,7 @@ import pathlib as pl
 import datetime
 import os
 
-from monai.networks.nets import resnet50
+from monai.networks.nets import resnet50#, resnet18
 
 class TnTS2(nn.Module):
     def __init__(self, n_classes=29):

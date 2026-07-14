@@ -1,6 +1,6 @@
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.nn.functional import cross_entropy
+from torch.nn.functional import cross_entropy, binary_cross_entropy_with_logits
 from pathlib import Path
 import os, tqdm, torch, numpy as np, shutil, datetime, json
 from TnT.utils.transforms import DecodeTarget
@@ -62,7 +62,7 @@ class LossHistory():
             )
 
 class Trainer():
-    def __init__(self, lr=1e-3, optim = Adam, sched = CosineAnnealingLR, loss = cross_entropy, device='cuda'):
+    def __init__(self, lr=1e-3, optim = Adam, sched = CosineAnnealingLR, loss = binary_cross_entropy_with_logits, device='cuda'):
         self.lr = lr
         self.optim = optim
         self.sched = sched
@@ -83,6 +83,7 @@ class Trainer():
             ## Training step
             model.train()
             for batch in tqdm.tqdm(train_dl, desc='Training batches'):
+                self.optim.zero_grad()
                 pred = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
                 l = self.loss(pred, batch['location'].to(self.device))
                 l.backward()
