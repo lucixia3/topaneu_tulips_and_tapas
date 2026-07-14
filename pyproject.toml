@@ -17,7 +17,6 @@ urls = { Homepage = "https://github.com/lucixia3/topaneu_tulips_and_tapas" }
 dependencies = [
   "torch",
   "torchvision",
-  "pandas",
   "numpy",
   "matplotlib",
   "seaborn",
