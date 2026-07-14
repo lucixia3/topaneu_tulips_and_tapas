@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "topaneu-tulips-and-tapas"
+version = "0.1.0"
+description = "Topaneu Tulips and Tapas model training and evaluation tools."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = ["medical-imaging", "deep-learning", "computer-vision", "vessel-segmentation"]
+authors = [
+  { name = "Unknown", email = "unknown@example.com" },
+]
+urls = { Homepage = "https://github.com/lucixia3/topaneu_tulips_and_tapas" }
+dependencies = [
+  "torch",
+  "torchvision",
+  "pandas",
+  "numpy",
+  "matplotlib",
+  "seaborn",
+  "SimpleITK",
+  "scipy",
+  "tqdm",
+  "monai",
+  "scikit-learn",
+]
+
+[tool.setuptools]
+packages = ["find:"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["TnT*"]
