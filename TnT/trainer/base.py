@@ -1,0 +1,135 @@
+from torch.optim import Adam
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.nn.functional import cross_entropy
+from pathlib import Path
+import os, tqdm, torch, numpy as np, shutil, datetime
+from TnT.utils.transforms import DecodeTarget
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+
+class LossHistory():
+    def __init__(self):
+        self.train_loss = []
+        self.val_loss = []
+        self.cur_val = []
+        self.cur_train = []
+    
+    def add_train(self, l):
+        self.cur_train.append(l.item())
+        
+    def add_val(self, l):
+        self.cur_val.append(l.item())
+        
+    def has_converged(self, patience, tol=1e-4):
+        if patience is None: return False
+        if len(self.val_loss)<patience: return False
+        return not any([f<self.val_loss[-patience] for f in self.val_loss[patience-1:]])
+    
+    def min(self):
+        e, v = min(enumerate(self.val_loss), key=lambda x: x[1])
+        return e+1, v
+    
+    def latest(self):
+        e, v = len(self.val_loss), self.val_loss[-1]
+        return e, v
+    
+    def fin_epoch(self):
+        self.train_loss.append(sum(self.cur_train)/len(self.cur_train))
+        self.cur_train = []
+        self.val_loss.append(sum(self.cur_val)/len(self.cur_val))
+        self.cur_val = []
+        
+    def plot_progress(self, wdir):
+        plt.plot(self.train_loss, label='training loss')
+        plt.plot(self.val_loss, label='validation loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend()
+        plt.title(f'Training/Validation loss per epoch')
+        plt.savefig(wdir/'training_losses.png')
+        plt.close()
+        plt.clf()
+
+class Trainer():
+    def __init__(self, lr=1e-3, optim = Adam, sched = CosineAnnealingLR, loss = cross_entropy, device='cuda'):
+        self.lr = lr
+        self.optim = optim
+        self.sched = sched
+        self.loss = loss
+        self.device = device
+        
+    def train(self, model, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y'))):
+        os.makedirs(wdir)
+        model.to(self.device)
+        self.optim = self.optim(model.parameters(), self.lr)
+        self.sched = self.sched(self.optim, epochs)
+        loss_history = LossHistory()
+        
+        fmt = f"0{len(str(epochs))}d"
+
+        for e in range(1, epochs+1):
+            print(f'------------------- Epoch {e:{fmt}}/{epochs} -------------------')
+            ## Training step
+            model.train()
+            for batch in tqdm.tqdm(train_dl, desc='Training batches'):
+                pred = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                l = self.loss(pred, batch['location'].to(self.device))
+                l.backward()
+                self.optim.step()
+                loss_history.add_train(l)
+            
+            ## Validation step
+            model.eval()
+            with torch.no_grad():
+                for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
+                    pred = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                    l = self.loss(pred, batch['location'].to(self.device))
+                    loss_history.add_val(l)
+            
+            ## scheduling
+            self.sched.step()
+            loss_history.fin_epoch()
+            loss_history.plot_progress(wdir)
+            
+            ## saving
+            model.save(wdir/f'epoch_{e}')
+            
+            ## early stopping
+            if loss_history.has_converged(early_stop):
+                best_epoch, best_loss = loss_history.min()
+                print(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
+                shutil.copytree(wdir/f'epoch_{best_epoch}', wdir/f'best_val_loss')
+                with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
+                    f.write(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
+                break
+        
+        else:
+            best_epoch, best_loss = loss_history.min()
+            print(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
+            shutil.copytree(wdir/f'epoch_{best_epoch}', wdir/f'best_val_loss')
+            with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
+                f.write(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
+                
+        model.load(wdir/f'best_val_loss')
+        return model
+                
+    def test(self, model, test_dl, best_model_dir=None):
+        if best_model_dir is not None:
+            model.load(best_model_dir)
+        model.to(self.device)
+        model.eval()
+        decoder = DecodeTarget()
+        preds = []
+        gts = []
+        for batch in test_dl:
+            gts.append(batch['location'])
+            preds.append(model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality']).detach().to('cpu'))
+            
+        preds = decoder(torch.concat(preds, dim=0))
+        gts = decoder(torch.concat(gts, dim=0))
+        
+        acc = accuracy_score(gts, preds)
+        
+        print(f"Model achieved an accuracy of {acc}")
+        
+        return acc

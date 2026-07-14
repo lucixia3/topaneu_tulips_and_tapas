@@ -6,3 +6,6 @@ matplotlib
 seaborn
 SimpleITK
 scipy
+tqdm
+monai
+scikit-learn
