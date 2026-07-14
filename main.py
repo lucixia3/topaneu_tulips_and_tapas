@@ -13,7 +13,7 @@ if __name__ == '__main__':
     #     fold.preprocess()
     #     fold.save(id)
     
-    ## Load splits
+    ## Prep trans
     transforms = Compose([
         MaybeToTensor(),
         AdaNorm.make(),
@@ -21,17 +21,21 @@ if __name__ == '__main__':
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
     ])
+    
+    ## load splits
     train = TopAneu_TnTs2_DS.load('train.json', transforms)
     val = TopAneu_TnTs2_DS.load('val.json', transforms)
     test = TopAneu_TnTs2_DS.load('test.json', transforms)
     
+    ## PrEP DL
     train_dl = DataLoader(train, batch_size=4, shuffle=True)
     val_dl = DataLoader(val, batch_size=4, shuffle=True)
     test_dl = DataLoader(test, batch_size=4, shuffle=False)
     
+    ## setup objs
     trainer = Trainer()
     model = TnTS2()
-    model.load('TnTS2_training_from-14:51:13-14.07.26/best_val_loss')
     
-    model = trainer.train(model, train_dl, val_dl, 2, None)
+    ## QnD train and test
+    model = trainer.train(model, train_dl, val_dl, 10, 5)
     acc = trainer.test(model, test_dl)

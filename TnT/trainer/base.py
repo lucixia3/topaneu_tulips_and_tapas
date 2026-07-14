@@ -2,7 +2,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn.functional import cross_entropy
 from pathlib import Path
-import os, tqdm, torch, numpy as np, shutil, datetime
+import os, tqdm, torch, numpy as np, shutil, datetime, json
 from TnT.utils.transforms import DecodeTarget
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
@@ -43,12 +43,23 @@ class LossHistory():
         plt.plot(self.train_loss, label='training loss')
         plt.plot(self.val_loss, label='validation loss')
         plt.ylabel('loss')
+        plt.yscale('log')
         plt.xlabel('epoch')
         plt.legend()
         plt.title(f'Training/Validation loss per epoch')
         plt.savefig(wdir/'training_losses.png')
         plt.close()
         plt.clf()
+        
+        with open(wdir/'losses.json', 'w') as f:
+            json.dump(
+                {
+                    'train': self.train_loss,
+                    'val': self.val_loss
+                },
+                f, 
+                indent=4
+            )
 
 class Trainer():
     def __init__(self, lr=1e-3, optim = Adam, sched = CosineAnnealingLR, loss = cross_entropy, device='cuda'):
