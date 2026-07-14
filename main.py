@@ -1,9 +1,24 @@
 from pprint import pprint
 from pathlib import Path
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
-from TnT.utils.transforms import AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel
+from TnT.utils.transforms import AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
 from TnT.trainer.base import Trainer
+from monai.transforms import (
+    RandAffined,
+    RandAffine,
+    RandFlip,
+    RandRotate90,
+    RandSpatialCrop,
+    RandGaussianNoise,
+    RandAdjustContrast,
+    RandGaussianSmooth,
+    RandScaleIntensity,
+    RandShiftIntensity,
+    RandBiasField,
+    RandHistogramShift,
+    NormalizeIntensity,
+)
 
 if __name__ == '__main__':
     ## Do splits
@@ -22,8 +37,72 @@ if __name__ == '__main__':
         BinarizeVesselChannel(),
     ])
     
+    train_transforms = Compose([
+        MaybeToTensor(),
+        MaybeResize(size=64),
+        BinarizeAneuChannel(),
+        BinarizeVesselChannel(),
+        # ---- Spatial transforms: must apply identically to image + all masks ----
+        ImageTransformWrapper(
+            RandSpatialCrop(roi_size=(64, 64, 64), random_size=False),
+            apply_to='all'
+        ),
+        ImageTransformWrapper(
+            RandFlip(prob=0.5, spatial_axis=0),
+            apply_to='all'
+        ),
+        ImageTransformWrapper(
+            RandFlip(prob=0.5, spatial_axis=1),
+            apply_to='all'
+        ),
+        ImageTransformWrapper(
+            RandRotate90(prob=0.5, spatial_axes=(0, 1)),
+            apply_to='all'
+        ),
+        ImageTransformWrapper(
+            RandAffine(
+                prob=0.3,
+                rotate_range=(0.1, 0.1, 0.1),
+                scale_range=(0.1, 0.1, 0.1),
+                padding_mode='border',
+            ),
+            apply_to='all'
+        ),
+
+        # ---- Intensity-only transforms: image channel exclusively ----
+        ImageTransformWrapper(
+            RandGaussianNoise(prob=0.2, mean=0.0, std=0.05),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandGaussianSmooth(prob=0.15, sigma_x=(0.5, 1.0), sigma_y=(0.5, 1.0), sigma_z=(0.5, 1.0)),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandAdjustContrast(prob=0.2, gamma=(0.7, 1.5)),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandScaleIntensity(prob=0.2, factors=0.1),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandShiftIntensity(prob=0.2, offsets=0.1),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandBiasField(prob=0.1, coeff_range=(0.0, 0.3)),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandHistogramShift(prob=0.1, num_control_points=(3, 5)),
+            apply_to=['image']
+        ),
+        AdaNorm.make(),
+    ])
+    
     ## load splits
-    train = TopAneu_TnTs2_DS.load('train.json', transforms)
+    train = TopAneu_TnTs2_DS.load('train.json', train_transforms)
     val = TopAneu_TnTs2_DS.load('val.json', transforms)
     test = TopAneu_TnTs2_DS.load('test.json', transforms)
     

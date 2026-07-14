@@ -299,3 +299,18 @@ class DecodeTarget():
         if loc not in self.excl_from_lat:
             loc += lat
         return loc
+    
+class ImageTransformWrapper():
+    def __init__(self, trans, apply_to=['image', 'aneu', 'vessel']):
+        self.trans = trans
+        self.map = {'image':0, 'aneu':1, 'vessel':2}
+        self.apply_to = apply_to
+    
+    def __call__(self, dct):
+        if self.apply_to == 'all':
+            dct['image'] = self.trans(dct['image'])
+        else:
+            for channel in self.apply_to:
+                idx = self.map[channel]
+                dct['image'][idx] = self.trans(dct['image'][idx])
+        return dct
