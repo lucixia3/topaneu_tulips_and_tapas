@@ -11,10 +11,10 @@ class TnTS2(nn.Module):
     def __init__(self, n_classes=29):
         super().__init__()
         self.bb = resnet50(spatial_dims=3, n_input_channels=3) # outputs [B, 400]
-        self.head = nn.Sequential([
+        self.head = nn.Sequential(
             nn.Linear(404, n_classes), # +4 input for [D, H, W, is_mr]
             nn.Sigmoid() # sigmoid for BCE loss
-        ])
+        )
         
     def forward(self, patch, coords, modalities):
         x = self.bb(patch)
@@ -24,7 +24,14 @@ class TnTS2(nn.Module):
     
     def classify(self, patch, coords, modalities):
         sigmoid = self.forward(patch, coords, modalities)
-        cls = (sigmoid>=0.5).to(torch.uint8)
+        if len(sigmoid.shape)==1: sigmoid.unsqueeze(0)
+        cls = torch.zeros_like(sigmoid, dtype=torch.uint8)
+        # assign loc
+        max_prob = torch.argmax(sigmoid[:, :27], dim=1)
+        cls[:, max_prob] = 1
+        # assign lat
+        max_prob = torch.argmax(sigmoid[:, 27:], dim=1)
+        cls[:, max_prob+27] = 1
         return cls
     
     def save(self, pth, overwrite=False):

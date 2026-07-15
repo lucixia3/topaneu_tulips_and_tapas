@@ -114,13 +114,12 @@ if __name__ == '__main__':
     ## setup objs
     trainer = Trainer()
     model = TnTS2()
-    model.load('TnTS2_training_from-21:56:52-14.07.26/best_val_loss')
     
     # for i in range(len(test)):
     #     print(test[i]['location'])
     
     ## QnD train and test
-    # model = trainer.train(model, train_dl, val_dl, 10, 5)
+    model = trainer.train(model, train_dl, val_dl, 10, 5)
     # print('#'*20, 'Training ACC', '#'*20)
     # acc = trainer.test(model, train_dl)
     # print('#'*20, 'Validation ACC', '#'*20)
