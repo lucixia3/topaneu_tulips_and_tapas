@@ -282,6 +282,35 @@ class DecodeTarget():
             27:49
         }
         self.excl_from_lat = [7, 8, 17, 36]
+        self.lit_loc_lookup = {
+            1: "1.1 VA trunk",
+            2: "1.2 PICA trunk",
+            3: "1.3 VA-PICA junction",
+            4: "1.4 BA trunk",
+            5: "1.5 VA-BA junction",
+            6: "1.6 AICA trunk",
+            7: "1.7 BA-AICA junction",
+            8: "1.8 SCA trunk",
+            9: "1.9 BA-SCA junction",
+            10: "1.10 BA tip",
+            11: "2.1 P1P2",
+            12: "2.2 P3P4",
+            13: "3.1 ICA infraclinoid C1-C5",
+            14: "3.2 ICA C6-OA-junction",
+            15: "3.3 ICA C6-nonOA",
+            16: "3.4 ICA C7-Pcom-junction",
+            17: "3.5 ICA C7-AChA-junction",
+            18: "3.6 ICA C7-nonBranch",
+            19: "3.7 ICA C7-terminus",
+            20: "4.1 Acom complex",
+            21: "4.2 A1",
+            22: "4.3 A2",
+            23: "4.4 A3",
+            24: "4.5 Distal ACA branches",
+            25: "5.1 M1 trunk",
+            26: "5.2 M1-M2 junction",
+            27: "5.3 Distal-M2M3",
+        }
     
     def __call__(self, obj):
         if len(obj.shape)==1:
@@ -297,8 +326,19 @@ class DecodeTarget():
         loc, logit_loc = max(enumerate(row[:27]), key=lambda x: x[1])
         lat, logit_lat = max(enumerate(row[27:]), key=lambda x: x[1])
         if loc not in self.excl_from_lat:
-            loc += lat
-        return loc
+            cls = loc+lat
+        else: cls = loc
+        
+        loc, lat = self._to_literal(loc, lat)
+        
+        return loc, lat, cls
+    
+    def _to_literal(self, loc, lat):
+        if loc not in self.excl_from_lat:
+            lit_lat = 'R' if lat == 0 else 'L'
+        else: lit_lat = 'N/A'
+        lit_loc = self.lit_loc_lookup[loc]
+        return lit_loc, lit_lat
     
 class ImageTransformWrapper():
     def __init__(self, trans, apply_to=['image', 'aneu', 'vessel']):

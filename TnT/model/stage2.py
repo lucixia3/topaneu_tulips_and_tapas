@@ -11,13 +11,21 @@ class TnTS2(nn.Module):
     def __init__(self, n_classes=29):
         super().__init__()
         self.bb = resnet50(spatial_dims=3, n_input_channels=3) # outputs [B, 400]
-        self.head = nn.Linear(404, n_classes) # +4 input for [D, H, W, is_mr]
+        self.head = nn.Sequential([
+            nn.Linear(404, n_classes), # +4 input for [D, H, W, is_mr]
+            nn.Sigmoid() # sigmoid for BCE loss
+        ])
         
     def forward(self, patch, coords, modalities):
         x = self.bb(patch)
         x = torch.concat([x, coords, torch.tensor([m=='MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)], dim=1)
         x = self.head(x)
         return x
+    
+    def classify(self, patch, coords, modalities):
+        sigmoid = self.forward(patch, coords, modalities)
+        cls = (sigmoid>=0.5).to(torch.uint8)
+        return cls
     
     def save(self, pth, overwrite=False):
         pth = pl.Path(pth)

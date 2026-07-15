@@ -42,7 +42,8 @@ class TopAneuDS(Dataset):
             'type_mask': t_msk if self.load_tm else None,
             'vessel_mask': v_msk,
             'locations': l_json['locations'],
-            'modality': 'MRA' if '_mr_' in fn else 'CTA'
+            'modality': 'MRA' if '_mr_' in fn else 'CTA',
+            'id': fn.replace('.nii.gz', '')
         }
         
         if self.transforms:
@@ -84,7 +85,8 @@ class TopAneu_TnTs2_DS(Dataset):
             'image': multichannel_img,
             'location': smp['location'], # multihot
             'coords': np.array(coords_in_vbb, dtype=int)/np.array(smp['vbb.shape'], dtype=int), # relative
-            'modality': smp['modality'] # string
+            'modality': smp['modality'], # string
+            'id': img_smp['id']
         }
         
         if self.transforms:
@@ -151,7 +153,8 @@ class TopAneu_TnTs2_DS(Dataset):
                     'location': self.encode_location(np.median(sample['location_mask'][cc==obj])),
                     'modality': sample['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
-                    'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])]
+                    'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
+                    'id': sample['id']
                 }
                 self.aneus.append(smp)
         
@@ -197,15 +200,18 @@ def TnTs2_collate(batch):
     coords = []
     locations = []
     modalities = []
+    ids = []
     for sample in batch:
         images.append(sample['image'])
         coords.append(sample['coords'])
         locations.append(sample['location'])
         modalities.append(sample['modality'])
+        ids.append(sample['id'])
         
     return {
         'image': torch.stack(images, dim=0),
         'coords': torch.stack(coords, dim=0),
         'location': torch.stack(locations, dim=0),
-        'modality': modalities # just a basic list
+        'modality': modalities, # just a basic list
+        'id': ids # just a basic list
     }

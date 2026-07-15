@@ -1,11 +1,11 @@
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.nn.functional import cross_entropy, binary_cross_entropy_with_logits
+from torch.nn.functional import cross_entropy, binary_cross_entropy, softmax
 from pathlib import Path
 import os, tqdm, torch, numpy as np, shutil, datetime, json
 from TnT.utils.transforms import DecodeTarget
-from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
+from TnT.trainer.metrics import loc_lat_cls_acc
 
 class LossHistory():
     def __init__(self):
@@ -62,7 +62,7 @@ class LossHistory():
             )
 
 class Trainer():
-    def __init__(self, lr=1e-3, optim = Adam, sched = CosineAnnealingLR, loss = binary_cross_entropy_with_logits, device='cuda'):
+    def __init__(self, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, loss = binary_cross_entropy, device='cuda'):
         self.lr = lr
         self.optim = optim
         self.sched = sched
@@ -133,14 +133,24 @@ class Trainer():
         decoder = DecodeTarget()
         preds = []
         gts = []
-        for batch in test_dl:
+        ids = []
+        for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
+            ids += batch['id']
             gts.append(batch['location'])
-            preds.append(model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality']).detach().to('cpu'))
-            
-        preds = decoder(torch.concat(preds, dim=0))
-        gts = decoder(torch.concat(gts, dim=0))
+            pred = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality']).detach().to('cpu')
+            preds.append(pred)
         
-        acc = accuracy_score(gts, preds)
+        preds = torch.concat(preds, dim=0).to(torch.uint8)  
+        preds_dec = decoder(preds)
+        gts = torch.concat(gts, dim=0).to(torch.uint8) 
+        gts_dec = decoder(gts)
+        
+        for id, g, p, g_vec, p_vec in zip(ids, gts_dec, preds_dec, gts, preds):
+            print(f'Image {id} with GT: loc={g[0]} lat={g[1]} cls={g[2]} got PREDS: loc={p[0]} lat={p[1]} cls={p[2]}')
+            print(f'    target vector: {g_vec.tolist()}')
+            print(f'    softmax pred vector: {p_vec.tolist()}')
+        
+        acc = loc_lat_cls_acc(gts, preds)
         
         print(f"Model achieved an accuracy of {acc}")
         
