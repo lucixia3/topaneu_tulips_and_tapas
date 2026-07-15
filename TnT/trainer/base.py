@@ -62,11 +62,10 @@ class LossHistory():
             )
 
 class Trainer():
-    def __init__(self, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, loss = binary_cross_entropy, device='cuda'):
+    def __init__(self, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, device='cuda'):
         self.lr = lr
         self.optim = optim
         self.sched = sched
-        self.loss = loss
         self.device = device
         
     def _save_train_cfg(self, model, train_dl, val_dl, epochs, early_stop, wdir):
@@ -77,7 +76,7 @@ class Trainer():
             f.write(f"Learningrate: {self.lr}\n")
             f.write(f"Learningrate Scheduler: {self.sched}\n")
             f.write(f"Optimizer: {self.optim}\n")
-            f.write(f"Loss: {self.loss}\n")
+            f.write(f"Loss: {model.loss}\n")
             f.write(f"Device: {self.device}\n")
             f.write(f"Train Transforms: {train_dl.dataset.transforms}\n")
             f.write(f"Val Transforms: {val_dl.dataset.transforms}\n")
@@ -98,8 +97,7 @@ class Trainer():
             model.train()
             for batch in tqdm.tqdm(train_dl, desc='Training batches'):
                 self.optim.zero_grad()
-                pred = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                l = self.loss(pred, batch['location'].to(self.device))
+                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
                 l.backward()
                 self.optim.step()
                 loss_history.add_train(l)
@@ -108,8 +106,7 @@ class Trainer():
             model.eval()
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
-                    pred = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                    l = self.loss(pred, batch['location'].to(self.device))
+                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
                     loss_history.add_val(l)
             
             ## scheduling

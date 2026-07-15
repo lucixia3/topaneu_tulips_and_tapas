@@ -13,7 +13,6 @@ class TnTS2(nn.Module):
         self.bb = resnet50(spatial_dims=3, n_input_channels=3) # outputs [B, 400]
         self.head = nn.Sequential(
             nn.Linear(404, n_classes), # +4 input for [D, H, W, is_mr]
-            nn.Sigmoid() # sigmoid for BCE loss
         )
         
     # def forward(self, patch, coords, modalities):
@@ -41,16 +40,16 @@ class TnTS2(nn.Module):
     
     def classify(self, patch, coords, modalities):
         unbatched = isinstance(modalities, str)
-        sigmoid = self.forward(patch, coords, modalities)
+        sigmoid = F.sigmoid(self.forward(patch, coords, modalities))
         if unbatched: sigmoid = sigmoid.unsqueeze(0)
         assigned = torch.zeros_like(sigmoid, dtype=torch.uint8)
-        for b_item in range(len(sigmoid.shape[0])):
+        for b_item in range(sigmoid.shape[0]):
             loc = torch.argmax(sigmoid[b_item, :27]).item()
             lat = torch.argmax(sigmoid[b_item, 27:]).item()
             assigned[b_item, loc]=1
             assigned[b_item, 27+lat]=1
-        if unbatched: assigned=assigned.squeeze()
-        return lat
+        if unbatched: assigned=assigned.squeeze(0)
+        return assigned
     
     def save(self, pth, overwrite=False):
         pth = pl.Path(pth)
@@ -66,3 +65,11 @@ class TnTS2(nn.Module):
         pth=pl.Path(pth)
         self.bb.load_state_dict(torch.load(pth/'bb.pth'))
         self.head.load_state_dict(torch.load(pth/'head.pth'))
+        
+    def loss(self, patch, coords, modalities, targets):
+        x = self.forward(patch, coords, modalities)
+        
+        loc_loss = F.cross_entropy(x[:, :27], targets[:, :27])
+        lat_loss = F.cross_entropy(x[:, 27:], targets[:, 27:])
+        
+        return loc_loss+lat_loss
