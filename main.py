@@ -119,10 +119,11 @@ if __name__ == '__main__':
     #     print(test[i]['location'])
     
     ## QnD train and test
-    model = trainer.train(model, train_dl, val_dl, 10, 5)
-    # print('#'*20, 'Training ACC', '#'*20)
-    # acc = trainer.test(model, train_dl)
-    # print('#'*20, 'Validation ACC', '#'*20)
-    # acc = trainer.test(model, val_dl)
-    # print('#'*20, 'Testing ACC', '#'*20)
+    # model = trainer.train(model, train_dl, val_dl, 10, 5)
+    model.load('TnTS2_training_from-10:11:09-15.07.26/best_val_loss')
+    print('#'*20, 'Training ACC', '#'*20)
+    acc = trainer.test(model, train_dl)
+    print('#'*20, 'Validation ACC', '#'*20)
+    acc = trainer.test(model, val_dl)
+    print('#'*20, 'Testing ACC', '#'*20)
     acc = trainer.test(model, test_dl)

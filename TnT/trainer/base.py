@@ -145,12 +145,12 @@ class Trainer():
         gts = torch.concat(gts, dim=0).to(torch.uint8) 
         gts_dec = decoder(gts)
         
-        for id, g, p, g_vec, p_vec in zip(ids, gts_dec, preds_dec, gts, preds):
-            print(f'Image {id} with GT: loc={g[0]} lat={g[1]} cls={g[2]} got PREDS: loc={p[0]} lat={p[1]} cls={p[2]}')
-            print(f'    target vector: {g_vec.tolist()}')
-            print(f'    softmax pred vector: {p_vec.tolist()}')
+        # for id, g, p, g_vec, p_vec in zip(ids, gts_dec, preds_dec, gts, preds):
+        #     print(f'Image {id} with GT: loc={g[0]} lat={g[1]} cls={g[2]} got PREDS: loc={p[0]} lat={p[1]} cls={p[2]}')
+        #     print(f'    target vector: {g_vec.tolist()}')
+        #     print(f'    softmax pred vector: {p_vec.tolist()}')
         
-        acc = loc_lat_cls_acc(gts, preds)
+        acc = loc_lat_cls_acc(gts_dec, preds_dec)
         
         print(f"Model achieved an accuracy of {acc}")
         

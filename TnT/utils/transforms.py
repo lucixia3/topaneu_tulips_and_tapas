@@ -73,11 +73,11 @@ class AdaNorm():
         
     def __call__(self, dct):
         if dct['modality']=='CTA':
-            if len(dct['image'])==3: dct['image'] = self.norm_ct(dct['image'])
+            if len(dct['image'].shape)==3: dct['image'] = self.norm_ct(dct['image'])
             else: dct['image'][0, :] = self.norm_ct(dct['image'][0, :])
 
         elif dct['modality'] == 'MRA':
-            if len(dct['image'])==3: dct['image'] = self.norm_mr(dct['image'])
+            if len(dct['image'].shape)==3: dct['image'] = self.norm_mr(dct['image'])
             else: dct['image'][0, :] = self.norm_mr(dct['image'][0, :])
             
         else: raise ValueError('Unknown modality')
