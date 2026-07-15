@@ -41,7 +41,7 @@ class TopAneuDS(Dataset):
             'location_mask': l_msk,
             'type_mask': t_msk if self.load_tm else None,
             'vessel_mask': v_msk,
-            'locations': l_json['locations'],
+            'location': l_json['locations'],
             'modality': 'MRA' if '_mr_' in fn else 'CTA',
             'id': fn.replace('.nii.gz', '')
         }
@@ -136,7 +136,7 @@ class TopAneu_TnTs2_DS(Dataset):
         self.aneus = []
         for i in tqdm.tqdm(range(len(self.image_ds)), desc='Patching'):
             sample = self.image_ds[i]
-            if not any(sample['locations']): continue
+            if not any(sample['location']): continue
             
             cc, n = label(sample['location_mask'])
             

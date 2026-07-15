@@ -232,13 +232,13 @@ class LateralityInvariance():
         }
     def __call__(self, dct):
         if isinstance(dct, dict):
-            loc = self.locmap[dct['locations']]
-            lat = self.latmap[dct['locations']]
+            loc = self.locmap[dct['location']]
+            lat = self.latmap[dct['location']]
             hot = [0]*27
             hot[loc-1]=1 # offset due to indexing
             hot += lat
             
-            dct['locations'] = hot
+            dct['location'] = hot
             return dct
         else:
             loc = self.locmap[dct]
