@@ -235,7 +235,7 @@ class LateralityInvariance():
             loc = self.locmap[dct['locations']]
             lat = self.latmap[dct['locations']]
             hot = [0]*27
-            hot[loc]=1
+            hot[loc-1]=1 # offset due to indexing
             hot += lat
             
             dct['locations'] = hot
@@ -323,15 +323,17 @@ class DecodeTarget():
         else: raise RuntimeError(f'Expected object to have 1 dimension if unbatched or 2 dimensions if batched, but received {len(obj.shape)} dimensions instead')
             
     def _conv_row(self, row):
-        loc, logit_loc = max(enumerate(row[:27]), key=lambda x: x[1])
-        lat, logit_lat = max(enumerate(row[27:]), key=lambda x: x[1])
-        if loc not in self.excl_from_lat:
-            cls = loc+lat
-        else: cls = loc
+        loc_27, prob_loc = max(enumerate(row[:27]), key=lambda x: x[1])
+        loc_27 += 1 # offset due to indexing
+        loc_50 = self.map[loc_27]
+        lat, prob_lat = max(enumerate(row[27:]), key=lambda x: x[1])
         
-        loc, lat = self._to_literal(loc, lat)
+        if loc_50 not in self.excl_from_lat: # should be redundant as the model should learn not to assign laterality in these cases.
+            loc_50 += lat
         
-        return loc, lat, cls
+        loc_lit, lat_lit = self._to_literal(loc_27, lat)
+        
+        return loc_lit, lat_lit, loc_50
     
     def _to_literal(self, loc, lat):
         if loc not in self.excl_from_lat:
@@ -354,3 +356,6 @@ class ImageTransformWrapper():
                 idx = self.map[channel]
                 dct['image'][idx] = self.trans(dct['image'][idx])
         return dct
+    
+    def __repr__(self):
+        return f'TnT.utils.transforms.ImageTransformWrapper object wrapping {self.trans.__repr__()}'

@@ -69,8 +69,22 @@ class Trainer():
         self.loss = loss
         self.device = device
         
+    def _save_train_cfg(self, model, train_dl, val_dl, epochs, early_stop, wdir):
+        with open(wdir/'train_cfg.txt', 'w') as f:
+            f.write(f"Model: {model}\n")
+            f.write(f"Epochs: {epochs}\n")
+            f.write(f"Early stopping after {early_stop} epochs (None means early stopping is disabled)\n")
+            f.write(f"Learningrate: {self.lr}\n")
+            f.write(f"Learningrate Scheduler: {self.sched}\n")
+            f.write(f"Optimizer: {self.optim}\n")
+            f.write(f"Loss: {self.loss}\n")
+            f.write(f"Device: {self.device}\n")
+            f.write(f"Train Transforms: {train_dl.dataset.transforms}\n")
+            f.write(f"Val Transforms: {val_dl.dataset.transforms}\n")
+        
     def train(self, model, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y'))):
         os.makedirs(wdir)
+        self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir)
         model.to(self.device)
         self.optim = self.optim(model.parameters(), self.lr)
         self.sched = self.sched(self.optim, epochs)

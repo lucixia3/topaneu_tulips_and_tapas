@@ -16,23 +16,41 @@ class TnTS2(nn.Module):
             nn.Sigmoid() # sigmoid for BCE loss
         )
         
+    # def forward(self, patch, coords, modalities):
+    #     if isinstance(modalities, str): modalities=[modalities]
+    #     x = self.bb(patch)
+    #     x = torch.concat([x, coords, torch.tensor([m=='MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)], dim=-1)
+    #     x = self.head(x)
+    #     return x
     def forward(self, patch, coords, modalities):
+        unbatched = isinstance(modalities, str)
+        if unbatched:
+            modalities = [modalities]
+            patch = patch.unsqueeze(0)
+            coords = coords.unsqueeze(0)
+
         x = self.bb(patch)
-        x = torch.concat([x, coords, torch.tensor([m=='MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)], dim=1)
+        modality_flag = torch.tensor([m == 'MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)
+        x = torch.concat([x, coords, modality_flag], dim=-1)
         x = self.head(x)
+
+        if unbatched:
+            x = x.squeeze(0)
+
         return x
     
     def classify(self, patch, coords, modalities):
+        unbatched = isinstance(modalities, str)
         sigmoid = self.forward(patch, coords, modalities)
-        if len(sigmoid.shape)==1: sigmoid.unsqueeze(0)
-        cls = torch.zeros_like(sigmoid, dtype=torch.uint8)
-        # assign loc
-        max_prob = torch.argmax(sigmoid[:, :27], dim=1)
-        cls[:, max_prob] = 1
-        # assign lat
-        max_prob = torch.argmax(sigmoid[:, 27:], dim=1)
-        cls[:, max_prob+27] = 1
-        return cls
+        if unbatched: sigmoid = sigmoid.unsqueeze(0)
+        assigned = torch.zeros_like(sigmoid, dtype=torch.uint8)
+        for b_item in range(len(sigmoid.shape[0])):
+            loc = torch.argmax(sigmoid[b_item, :27]).item()
+            lat = torch.argmax(sigmoid[b_item, 27:]).item()
+            assigned[b_item, loc]=1
+            assigned[b_item, 27+lat]=1
+        if unbatched: assigned=assigned.squeeze()
+        return lat
     
     def save(self, pth, overwrite=False):
         pth = pl.Path(pth)
