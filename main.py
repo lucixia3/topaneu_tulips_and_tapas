@@ -1,7 +1,7 @@
 from pprint import pprint
 from pathlib import Path
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
-from TnT.utils.transforms import AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
+from TnT.utils.transforms import RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
 from TnT.trainer.base import Trainer
 from monai.transforms import (
@@ -22,31 +22,35 @@ from monai.transforms import (
 
 if __name__ == '__main__':
     ## Do splits
-    # ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")
-    # folds = ds.split('0.8-0.1-0.1', 42)
-    # for id, fold in zip(['train', 'test', 'val'], folds):
-    #     fold.preprocess()
-    #     fold.save(id)
+    ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")
+    folds = ds.split('0.8-0.1-0.1', 42)
+    for id, fold in zip(['train', 'test', 'val'], folds):
+        if id == 'train': fold.preprocess(include_bg=0.2, max_items=10)
+        else: fold.preprocess() 
+        fold.save(id)
     
     ## Prep trans
     transforms = Compose([
         MaybeToTensor(),
-        AdaNorm.make(),
         MaybeResize(size=64),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
+        AdaNorm.make(),
     ])
     
     train_transforms = Compose([
         MaybeToTensor(),
-        MaybeResize(size=64),
+        MaybeResize(64),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
+        
+        # ---- Custom stuff ----
+        RandomMask(0.2),
+        RandomNonCorrespondingMask(0.2),
+        RandomNonCorrespondingMorph(0.2),
+        
+        
         # ---- Spatial transforms: must apply identically to image + all masks ----
-        ImageTransformWrapper(
-            RandSpatialCrop(roi_size=(64, 64, 64), random_size=False),
-            apply_to='all'
-        ),
         ImageTransformWrapper(
             RandFlip(prob=0.5, spatial_axis=0),
             apply_to='all'
@@ -116,8 +120,7 @@ if __name__ == '__main__':
     model = TnTS2()
     
     ## train or load
-    #model = trainer.train(model, train_dl, val_dl, 10, 5)
-    model.load('best_val_loss')
+    model = trainer.train(model, train_dl, val_dl, 10, 5)
 
     ## QnD test
     print('#'*20, 'Training ACC', '#'*20)

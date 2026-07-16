@@ -1,5 +1,8 @@
-import numpy as np, json, tqdm, torch
-from torchvision.transforms import Normalize, Compose, Resize
+import numpy as np, json, tqdm, torch, random
+from pprint import pprint
+from torchvision.transforms import Normalize, Compose, InterpolationMode
+from monai.transforms import Resize
+from scipy.ndimage import binary_dilation, binary_erosion, grey_dilation, grey_erosion, generate_binary_structure
 
 class BinarizeVessels():
     def __call__(self, dct):
@@ -35,10 +38,11 @@ class MaybeToTensor():
                 else: dct[k] = torch.tensor(v).to(self.dtype)
         return dct
     
-class MaybeResize(): ## gen by claude, cause my implementation was buggy
-    def __init__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
+class MaybeResize():
+    def __init__(self, size=64):
+        spatial_size = (size, size, size)
+        self.msk_resize = Resize(spatial_size=spatial_size, mode='nearest')
+        self.img_resize = Resize(spatial_size=spatial_size, mode='trilinear', anti_aliasing=True)
         self.convertable = ['image', 'location_mask', 'vessel_mask', 'type_mask']
         self.mask_keys = ['location_mask', 'vessel_mask', 'type_mask']
 
@@ -47,23 +51,19 @@ class MaybeResize(): ## gen by claude, cause my implementation was buggy
             if k not in self.convertable:
                 continue
 
-            added_channel = False
-            if v.dim() == 3:          # (D, H, W) -> add channel dim
-                v = v.unsqueeze(0)
-                added_channel = True
+            if k == 'image' and v.dim() == 4:
+                # channel-first [3, D, H, W]: raw image + aneu mask + vessel mask
+                c0 = self.img_resize(v[0].unsqueeze(0)).squeeze(0)
+                c1 = self.msk_resize(v[1].unsqueeze(0)).squeeze(0)
+                c2 = self.msk_resize(v[2].unsqueeze(0)).squeeze(0)
+                dct[k] = torch.stack([c0, c1, c2], dim=0)
+            elif k in self.mask_keys:
+                dct[k] = self.msk_resize(v.unsqueeze(0)).squeeze(0)
+            elif v.dim() == 3:
+                dct[k] = self.img_resize(v.unsqueeze(0)).squeeze(0)
+            else:
+                raise RuntimeError(f"MaybeResize: unexpected shape {tuple(v.shape)} for key '{k}'")
 
-            # pick interpolation mode per key type
-            kwargs = dict(self.kwargs)
-            if k in self.mask_keys:
-                kwargs['mode'] = 'nearest'  # override whatever was passed
-            resize = Resize(*self.args, **kwargs)
-
-            v = resize(v)
-
-            if added_channel:
-                v = v.squeeze(0)
-
-            dct[k] = v
         return dct
     
 class AdaNorm():
@@ -351,6 +351,8 @@ class DecodeTarget():
         return lit_loc, lit_lat
     
 class ImageTransformWrapper():
+    """Wrapper to allow usage of monai transforms on our data structure
+    """
     def __init__(self, trans, apply_to=['image', 'aneu', 'vessel']):
         self.trans = trans
         self.map = {'image':0, 'aneu':1, 'vessel':2}
@@ -366,4 +368,97 @@ class ImageTransformWrapper():
         return dct
     
     def __repr__(self):
-        return f'TnT.utils.transforms.ImageTransformWrapper object wrapping {self.trans.__repr__()}'
+        return f'TnT.utils.transforms.ImageTransformWrapper object wrapping {self.trans.__repr__()} onto channels {self.apply_to}'
+    
+class RandomMask():
+    """Mask out random regions with correspondence across channels, if object is a dict with a 4D image, else mask out random region in 3D tensor
+    """
+    def __init__(self, prob):
+        self.prob=prob
+        
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+    
+    def _gen_random_msk(self, shape):
+        centers = [random.choice(range(s)) for s in shape]
+        shapes = [round(random.choice(range(s-c))/2) for s, c in zip(shape, centers)]
+        msk = torch.zeros(shape, dtype=torch.bool)
+        msk[centers[0]-shapes[0]:centers[0]+shapes[0], centers[1]-shapes[1]:centers[1]+shapes[1], centers[2]-shapes[2]:centers[2]+shapes[2]]=True
+        return msk
+        
+    def __call__(self, dct):
+        if not self.execute: return dct
+        if isinstance(dct, torch.Tensor):
+            assert len(dct.shape)==3, 'TnT.utils.transforms.RandomMask only supports execution on 3D tensors or dicts'
+            dct[self._gen_random_msk(dct.shape)]=0
+            return dct
+        elif isinstance(dct, dict):
+            assert len(dct['image'].shape)==4, 'TnT.utils.transforms.RandomMask only supports execution on 3D tensors or dicts'
+            msk = self._gen_random_msk(dct['image'].shape[1:])
+            for i in range(3):
+                dct['image'][i, msk]=0
+            return dct
+        else: raise AssertionError('TnT.utils.transforms.RandomMask only supports execution on 3D tensors or dicts')
+        
+        
+class RandomNonCorrespondingMask():
+    """Mask out random regions, without correspondence across channels
+    """
+    def __init__(self, prob):
+        self.prob=prob
+        self.trans = RandomMask(prob)
+        
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+        
+    def __call__(self, dct):
+        if not self.execute: return dct
+        assert isinstance(dct, dict), 'TnT.utils.transforms.RandomNonCorrespondingMask only supports execution on dicts with 4D images'
+        assert len(dct['image'].shape)==4, 'TnT.utils.transforms.RandomNonCorrespondingMask only supports execution on dicts with 4D images'
+        for i in range(3):
+            dct['image'][i, :] = self.trans(dct['image'][i, :])
+        return dct
+    
+class RandomNonCorrespondingMorph():
+    def __init__(self, prob, operator_diameter=[3, 5, 7]):
+        self.prob = prob
+        self.operator_diameter = operator_diameter
+        
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+    
+    @property
+    def method(self):
+        return random.choice(['erosion', 'dilation'])
+    
+    @property
+    def struct(self):
+        return generate_binary_structure(rank=3, connectivity=random.choice(self.operator_diameter) if isinstance(self.operator_diameter, list) else self.operator_diameter)
+    
+    def _apply_grey_morph(self, tensor):
+        if self.execute:
+            arr = tensor.numpy()
+            if self.method == 'erosion': arr = grey_erosion(arr, structure=self.struct)
+            elif self.method == 'dilation': arr = grey_dilation(arr, structure=self.struct)
+            return torch.from_numpy(arr)
+        else: return tensor
+        
+    def _apply_bin_morph(self, tensor):
+        if self.execute:
+            arr = tensor.numpy()
+            if self.method == 'erosion': arr = binary_erosion(arr, structure=self.struct)
+            elif self.method == 'dilation': arr = binary_dilation(arr, structure=self.struct)
+            return torch.from_numpy(arr)
+        else: return tensor
+    
+    def __call__(self, dct):
+        if not self.execute: return dct
+        assert isinstance(dct, dict), 'TnT.utils.transforms.RandomNonCorrespondingMask only supports execution on dicts with 4D images'
+        assert len(dct['image'].shape)==4, 'TnT.utils.transforms.RandomNonCorrespondingMask only supports execution on dicts with 4D images'
+        dct['image'][0, :] = self._apply_grey_morph(dct['image'][0, :])
+        dct['image'][1, :] = self._apply_bin_morph(dct['image'][1, :])
+        dct['image'][2, :] = self._apply_bin_morph(dct['image'][2, :])
+        return dct

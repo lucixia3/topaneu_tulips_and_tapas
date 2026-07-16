@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader, Dataset
 from pathlib import Path
-import os, tqdm, SimpleITK as sitk, json, numpy as np, random, torch
+import os, tqdm, SimpleITK as sitk, json, numpy as np, random, torch, copy
 from scipy.ndimage import label
 from TnT.utils.transforms import LateralityInvariance
 from pprint import pprint
@@ -78,6 +78,9 @@ class TopAneu_TnTs2_DS(Dataset):
             ], axis=0
         )
         
+        if smp['location'][0]==1: # if it is one the bg patches need to gen a random sphere
+            multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, multichannel_img.shape[2]*random.choice(np.arange(0.1, 0.5, 0.1).tolist()))
+        
         coords_in_vbb = [
             smp['coords'][0]-smp['vbb'][0][0],
             smp['coords'][1]-smp['vbb'][1][0],
@@ -135,14 +138,88 @@ class TopAneu_TnTs2_DS(Dataset):
         ]            
         return crop
     
-    def _make_bg_patches(self, n):
-        return []
-        for i in range(n):
-            pass
+    def _center_mask_out(self, img, coords, spacing, size_mm):
+        sz_mm = round(size_mm/2)
+        sz = [round(sz_mm/sp) for sp in spacing]
+        shape = img.shape
+        
+        coords_lower = []
+        coords_upper = []
+        for c_ax, sh_ax, sz_ax in zip(coords, shape, sz):
+
+            upper = c_ax+sz_ax
+            lower = c_ax-sz_ax
             
+            if upper<=sh_ax and lower >=0:
+                coords_lower.append(lower)
+                coords_upper.append(upper)
+            elif upper > sh_ax:
+                diff = upper-sh_ax
+                coords_upper.append(sh_ax)
+                coords_lower.append(lower-diff)
+            elif lower < 0:
+                diff = lower
+                coords_lower.append(0)
+                coords_upper.append(upper+abs(diff))
+        
+        img[
+            int(coords_lower[0]):int(coords_upper[0]),
+            int(coords_lower[1]):int(coords_upper[1]),
+            int(coords_lower[2]):int(coords_upper[2])
+        ] = 0      
+        return img
+    
+    def _make_bg_patches(self, n):
+        bg_patches = []
+        for i in tqdm.tqdm(range(n), desc='Generating random bg patches'):
+            rndm_img_idx = random.choice(range(len(self)))
+            cur_smp = self.aneus[rndm_img_idx]
+            img_smp = self.image_ds[cur_smp['idx']]
+            masked = self._center_mask_out(copy.deepcopy(img_smp['vessel_mask']), cur_smp['coords'], img_smp['spacing'], self.patch_size_mm)
+            
+            possible_seeds = np.argwhere(masked)
+            
+            seed = possible_seeds[random.choice(range(possible_seeds.shape[0])), :]
+            
+            vbb_coords = np.argwhere(img_smp['vessel_mask']) # VBB = Vessel Bounding Box
+            vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
+            vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
+            vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
+            
+            smp = {
+                    'idx': i, # the base image idx in the base dataset
+                    'coords': seed.tolist(), # the centroid
+                    'location': self.encode_location(0),
+                    'modality': img_smp['modality'],
+                    'vbb': [vbb_d, vbb_h, vbb_w],
+                    'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
+                    'id': img_smp['id']
+                }
+            
+            bg_patches.append(smp)
+        return bg_patches
+            
+    def _put_random_sphere_as_aneu(self, img, diameter):
+        diameter = min(min(img.shape), round(diameter))
+        obj = np.zeros((diameter, diameter, diameter), dtype=bool)
+        radius = diameter / 2
+        center = (diameter - 1) / 2  # e.g. for diameter=3: center=1.0
+
+        z, y, x = np.ogrid[:diameter, :diameter, :diameter]
+        dist_sq = (x - center)**2 + (y - center)**2 + (z - center)**2
+
+        obj[dist_sq <= radius**2] = True
+        obj = obj.astype(np.uint8)
+        size_sph = obj.shape
+        center = [round(s/2) for s in img.shape[1:]]
+        lowers = [c-round(s) for c, s in zip(center, size_sph)]
+    
+        img[1, lowers[0]:lowers[0]+size_sph[0], lowers[1]:lowers[1]+size_sph[1], lowers[2]:lowers[2]+size_sph[2]] = obj
+        return img
+    
     ###########################
     ########################### publics
-    def preprocess(self, include_bg=False):
+    def preprocess(self, include_bg=False, max_items=-1):
         if self.is_patched: return
         self.aneus = []
         for i in tqdm.tqdm(range(len(self.image_ds)), desc='Patching'):
@@ -167,12 +244,16 @@ class TopAneu_TnTs2_DS(Dataset):
                     'id': sample['id']
                 }
                 self.aneus.append(smp)
+            if i == max_items:break
         
         n_real_patches = len(self.aneus) # store number of actual patches.
         
+        extra_patches = []
         if include_bg:
             n_bg = round(n_real_patches*include_bg)
-            self.aneus += self._make_bg_patches(n_bg)
+            extra_patches += self._make_bg_patches(n_bg)
+            
+        self.aneus+=extra_patches
         
     def split(self, folds='0.8-0.2', random_seed=42):
         folds = [float(val) for val in folds.split('-')]
