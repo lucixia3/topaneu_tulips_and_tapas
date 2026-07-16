@@ -116,12 +116,13 @@ if __name__ == '__main__':
     model = TnTS2()
     
     ## train or load
-    model = trainer.train(model, train_dl, val_dl, 10, 5)
-    # model.load('TnTS2_training_from-12:06:53-15.07.26/epoch_75')
+    #model = trainer.train(model, train_dl, val_dl, 10, 5)
+    model.load('best_val_loss')
 
     ## QnD test
     print('#'*20, 'Training ACC', '#'*20)
     train = TopAneu_TnTs2_DS.load('train.json', transforms)
+    train_dl = DataLoader(train, batch_size=4, shuffle=True)
     acc = trainer.test(model, train_dl)
     print('#'*20, 'Validation ACC', '#'*20)
     acc = trainer.test(model, val_dl)

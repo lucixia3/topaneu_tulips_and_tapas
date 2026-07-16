@@ -166,12 +166,23 @@ class TopAneu_TnTs2_DS(Dataset):
         random.shuffle(rndm_cases)
         n_cases = len(self.image_ds)
         fold_ds = []
+        subsets = []
         lower = 0
         for fold in folds:
-            upper = round(n_cases*fold)
+            upper = round(n_cases*fold)+lower
             upper = upper if upper <= n_cases else n_cases
             subset = rndm_cases[lower:upper]
             fold_ds.append(TopAneu_TnTs2_DS(self.image_ds.src, transforms=None, cases=subset))
+            subsets.append(subset)
+            lower=upper
+        
+        for i, sub in enumerate(subsets):
+            other = []
+            for j, ss in enumerate(subsets):
+                if j == i: continue
+                other += ss
+            assert not any([s in other for s in sub]), 'Found leakage between sets.'
+        
         return fold_ds
     
     def save(self, path):
