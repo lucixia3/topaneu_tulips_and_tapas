@@ -55,7 +55,7 @@ class TopAneuDS(Dataset):
     
 class TopAneu_TnTs2_DS(Dataset):
     ########################### builtins
-    def __init__(self, source, transforms=None, cases=None, patch_size_mm=16):
+    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
         self.aneus = None
         self.transforms = transforms
@@ -269,7 +269,7 @@ class TopAneu_TnTs2_DS(Dataset):
             upper = round(n_cases*fold)+lower
             upper = upper if upper <= n_cases else n_cases
             subset = rndm_cases[lower:upper]
-            fold_ds.append(TopAneu_TnTs2_DS(self.image_ds.src, transforms=None, cases=subset))
+            fold_ds.append(TopAneu_TnTs2_DS(self.image_ds.src, transforms=None, cases=subset, patch_size_mm=self.patch_size_mm))
             subsets.append(subset)
             lower=upper
         
