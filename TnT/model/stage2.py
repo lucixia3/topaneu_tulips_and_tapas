@@ -4,16 +4,19 @@ import torch.nn.functional as F
 import pathlib as pl
 import datetime
 import os
+from TnT.utils.transforms import LateralityInvariance
 
 from monai.networks.nets import resnet50#, resnet18
 
 class TnTS2(nn.Module):
-    def __init__(self, n_classes=29):
+    def __init__(self):
         super().__init__()
+        self.n_locs, self.n_lats = LateralityInvariance.get_n_locs_lats()
         self.bb = resnet50(spatial_dims=3, n_input_channels=3) # outputs [B, 400]
         self.head = nn.Sequential(
-            nn.Linear(404, n_classes), # +4 input for [D, H, W, is_mr]
+            nn.Linear(404, self.n_locs+self.n_lats), # +4 input for [D, H, W, is_mr]
         )
+
         
     # def forward(self, patch, coords, modalities):
     #     if isinstance(modalities, str): modalities=[modalities]
@@ -44,10 +47,10 @@ class TnTS2(nn.Module):
         if unbatched: sigmoid = sigmoid.unsqueeze(0)
         assigned = torch.zeros_like(sigmoid, dtype=torch.uint8)
         for b_item in range(sigmoid.shape[0]):
-            loc = torch.argmax(sigmoid[b_item, :27]).item()
-            lat = torch.argmax(sigmoid[b_item, 27:]).item()
+            loc = torch.argmax(sigmoid[b_item, :self.n_locs]).item()
+            lat = torch.argmax(sigmoid[b_item, self.n_locs:]).item()
             assigned[b_item, loc]=1
-            assigned[b_item, 27+lat]=1
+            assigned[b_item, self.n_locs+lat]=1
         if unbatched: assigned=assigned.squeeze(0)
         return assigned
     
@@ -69,7 +72,7 @@ class TnTS2(nn.Module):
     def loss(self, patch, coords, modalities, targets):
         x = self.forward(patch, coords, modalities)
         
-        loc_loss = F.cross_entropy(x[:, :27], targets[:, :27])
-        lat_loss = F.cross_entropy(x[:, 27:], targets[:, 27:])
+        loc_loss = F.cross_entropy(x[:, :self.n_locs], targets[:, :self.n_locs])
+        lat_loss = F.cross_entropy(x[:, self.n_locs:], targets[:, self.n_locs:])
         
         return loc_loss+lat_loss

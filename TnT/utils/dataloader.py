@@ -29,7 +29,8 @@ class TopAneuDS(Dataset):
         fn = img.replace('_0000.', '.')
         fn_json = fn.replace('.nii.gz', '.json')
         
-        vol = sitk.GetArrayFromImage(sitk.ReadImage(self.src/'images'/img))
+        sitk_im = sitk.ReadImage(self.src/'images'/img)
+        vol = sitk.GetArrayFromImage(sitk_im)
         l_msk = sitk.GetArrayFromImage(sitk.ReadImage(self.src/'location_masks'/fn))
         v_msk = sitk.GetArrayFromImage(sitk.ReadImage(self.src/'vessel_masks'/fn))
         if self.load_tm: t_msk = sitk.GetArrayFromImage(sitk.ReadImage(self.src/'type_masks'/fn))
@@ -43,7 +44,8 @@ class TopAneuDS(Dataset):
             'vessel_mask': v_msk,
             'location': l_json['locations'],
             'modality': 'MRA' if '_mr_' in fn else 'CTA',
-            'id': fn.replace('.nii.gz', '')
+            'id': fn.replace('.nii.gz', ''),
+            'spacing': sitk_im.GetSpacing()
         }
         
         if self.transforms:
@@ -53,11 +55,12 @@ class TopAneuDS(Dataset):
     
 class TopAneu_TnTs2_DS(Dataset):
     ########################### builtins
-    def __init__(self, source, transforms=None, cases=None):
+    def __init__(self, source, transforms=None, cases=None, patch_size_mm=16):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
         self.aneus = None
         self.transforms = transforms
         self.encode_location = LateralityInvariance()
+        self.patch_size_mm = patch_size_mm
         
     def __len__(self):
         return len(self.aneus)
@@ -69,9 +72,9 @@ class TopAneu_TnTs2_DS(Dataset):
         
         multichannel_img = np.stack( # 4D array: [C, D, H, W]
             [
-                self._center_crop(img_smp['image'], smp['coords'], smp['size']),
-                self._center_crop(img_smp['location_mask'], smp['coords'], smp['size']),
-                self._center_crop(img_smp['vessel_mask'], smp['coords'], smp['size'])
+                self._center_crop(img_smp['image'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
+                self._center_crop(img_smp['location_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
+                self._center_crop(img_smp['vessel_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm)
             ], axis=0
         )
         
@@ -86,7 +89,8 @@ class TopAneu_TnTs2_DS(Dataset):
             'location': smp['location'], # multihot
             'coords': np.array(coords_in_vbb, dtype=int)/np.array(smp['vbb.shape'], dtype=int), # relative
             'modality': smp['modality'], # string
-            'id': img_smp['id']
+            'id': img_smp['id'],
+            'spacing': img_smp['spacing']
         }
         
         if self.transforms:
@@ -100,23 +104,24 @@ class TopAneu_TnTs2_DS(Dataset):
         return self.aneus is not None
     ########################### 
     ########################### privates
-    def _center_crop(self, img, coords, size):
-        sz = round(size/2)
+    def _center_crop(self, img, coords, spacing, size_mm):
+        sz_mm = round(size_mm/2)
+        sz = [round(sz_mm/sp) for sp in spacing]
         shape = img.shape
         
         coords_lower = []
         coords_upper = []
-        for i, d in enumerate(coords):
-            d_size = shape[i]
-            upper = d+sz
-            lower = d-sz
+        for c_ax, sh_ax, sz_ax in zip(coords, shape, sz):
+
+            upper = c_ax+sz_ax
+            lower = c_ax-sz_ax
             
-            if upper<=d_size and lower >=0:
+            if upper<=sh_ax and lower >=0:
                 coords_lower.append(lower)
                 coords_upper.append(upper)
-            elif upper > d_size:
-                diff = upper-d_size
-                coords_upper.append(d_size)
+            elif upper > sh_ax:
+                diff = upper-sh_ax
+                coords_upper.append(sh_ax)
                 coords_lower.append(lower-diff)
             elif lower < 0:
                 diff = lower
@@ -129,9 +134,15 @@ class TopAneu_TnTs2_DS(Dataset):
             int(coords_lower[2]):int(coords_upper[2])
         ]            
         return crop
+    
+    def _make_bg_patches(self, n):
+        return []
+        for i in range(n):
+            pass
+            
     ###########################
     ########################### publics
-    def preprocess(self):
+    def preprocess(self, include_bg=False):
         if self.is_patched: return
         self.aneus = []
         for i in tqdm.tqdm(range(len(self.image_ds)), desc='Patching'):
@@ -149,7 +160,6 @@ class TopAneu_TnTs2_DS(Dataset):
                 smp = {
                     'idx': i, # the base image idx in the base dataset
                     'coords': np.mean(np.argwhere(cc==obj), axis=0).tolist(), # the centroid
-                    'size': 64, # the size of the crop window maybe make this dynamic later on.
                     'location': self.encode_location(np.median(sample['location_mask'][cc==obj])),
                     'modality': sample['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
@@ -157,6 +167,12 @@ class TopAneu_TnTs2_DS(Dataset):
                     'id': sample['id']
                 }
                 self.aneus.append(smp)
+        
+        n_real_patches = len(self.aneus) # store number of actual patches.
+        
+        if include_bg:
+            n_bg = round(n_real_patches*include_bg)
+            self.aneus += self._make_bg_patches(n_bg)
         
     def split(self, folds='0.8-0.2', random_seed=42):
         folds = [float(val) for val in folds.split('-')]
@@ -189,7 +205,8 @@ class TopAneu_TnTs2_DS(Dataset):
         saveable = {
             'cases': self.image_ds.cases,
             'source': str(self.image_ds.src),
-            'aneus': self.aneus
+            'aneus': self.aneus,
+            'patch_size_mm': self.patch_size_mm
         }
         path = str(path)+'.json' if not str(path).endswith('.json') else str(path)
         with open(path, 'w') as file:
@@ -202,6 +219,7 @@ class TopAneu_TnTs2_DS(Dataset):
             loaded = json.load(file)
         ds = TopAneu_TnTs2_DS(source=loaded['source'], transforms=transforms, cases=loaded['cases'])
         ds.aneus = loaded['aneus']
+        ds.patch_size_mm = loaded['patch_size_mm']
         return ds
     ###########################
     

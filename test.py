@@ -1,6 +1,7 @@
 from pprint import pprint
 from pathlib import Path
-import torch
+import torch, os
+import SimpleITK as sitk
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
 from TnT.utils.transforms import DecodeTarget, LateralityInvariance, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
@@ -20,15 +21,19 @@ from monai.transforms import (
     RandHistogramShift,
     NormalizeIntensity,
 )
+def get_image_info(img: sitk.Image) -> dict:
+    return {
+        "shape": img.GetSize(),          # (x, y, z)
+        "spacing": img.GetSpacing(),      # (sx, sy, sz)
+        "origin": img.GetOrigin(),        # (ox, oy, oz)
+        "orientation": sitk.DICOMOrientImageFilter_GetOrientationFromDirectionCosines(img.GetDirection()) # 9-element direction cosine matrix (flattened)
+    }
 
 if __name__ == '__main__':
-    transform = LateralityInvariance()
-    decode = DecodeTarget()
-    for i in range(1, 51):
-        
-        batch = {'location': i}
-        print('cls 50', batch)
-        enc = transform(batch)
-        print('cls enc', enc['location'])
-        dec = decode(torch.tensor(batch['location']))
-        print('dec', dec)
+    src = Path("/home/tue20260926/Data/topaneu_deployment")
+    ds = TopAneu_TnTs2_DS(src)
+    ds.preprocess()
+    
+    for i in range(len(ds)):
+        smp = ds[i]
+        print(f'idx={i}; patch_in_vox={smp['image'].shape}, patch_in_mm={[sh*sp for sh, sp in zip(smp['image'][0, :].shape, smp['spacing'])]}, target={ds.patch_size_mm}')

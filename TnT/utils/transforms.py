@@ -127,6 +127,7 @@ class AdaNorm():
 class LateralityInvariance():
     def __init__(self):
         self.locmap = {
+            0: 0,
             1: 1,
             2: 1,
             3: 2,
@@ -179,6 +180,7 @@ class LateralityInvariance():
             50: 27
         }
         self.latmap = { # stored as [R, L]
+            0: [0, 0],
             1: [1, 0],
             2: [0, 1],
             3: [1, 0],
@@ -230,12 +232,14 @@ class LateralityInvariance():
             49: [1, 0],
             50: [0, 1]
         }
+        self.n_locs, self.n_lats = self.get_n_locs_lats()
+        
     def __call__(self, dct):
         if isinstance(dct, dict):
             loc = self.locmap[dct['location']]
             lat = self.latmap[dct['location']]
-            hot = [0]*27
-            hot[loc-1]=1 # offset due to indexing
+            hot = [0]*self.n_locs
+            hot[loc]=1 # offset due to indexing
             hot += lat
             
             dct['location'] = hot
@@ -244,15 +248,19 @@ class LateralityInvariance():
             loc = self.locmap[dct]
             lat = self.latmap[dct]
         
-            hot = [0]*27
+            hot = [0]*self.n_locs
             hot[loc]=1
             hot += lat
             
             return hot
         
+    @staticmethod
+    def get_n_locs_lats():
+        return 28, 2
 class DecodeTarget():
     def __init__(self):
         self.map = {
+            0:0,
             1:1,
             2:3,
             3:5, 
@@ -281,8 +289,9 @@ class DecodeTarget():
             26:47,
             27:49
         }
-        self.excl_from_lat = [7, 8, 17, 36]
+        self.excl_from_lat = [0, 7, 8, 17, 36]
         self.lit_loc_lookup = {
+            0: 'background',
             1: "1.1 VA trunk",
             2: "1.2 PICA trunk",
             3: "1.3 VA-PICA junction",
@@ -323,15 +332,14 @@ class DecodeTarget():
         else: raise RuntimeError(f'Expected object to have 1 dimension if unbatched or 2 dimensions if batched, but received {len(obj.shape)} dimensions instead')
             
     def _conv_row(self, row):
-        loc_27, prob_loc = max(enumerate(row[:27]), key=lambda x: x[1])
-        loc_27 += 1 # offset due to indexing
-        loc_50 = self.map[loc_27]
-        lat, prob_lat = max(enumerate(row[27:]), key=lambda x: x[1])
+        loc_28, prob_loc = max(enumerate(row[:28]), key=lambda x: x[1])
+        loc_50 = self.map[loc_28]
+        lat, prob_lat = max(enumerate(row[28:]), key=lambda x: x[1])
         
         if loc_50 not in self.excl_from_lat: # should be redundant as the model should learn not to assign laterality in these cases.
             loc_50 += lat
         
-        loc_lit, lat_lit = self._to_literal(loc_27, lat)
+        loc_lit, lat_lit = self._to_literal(loc_28, lat)
         
         return loc_lit, lat_lit, loc_50
     
