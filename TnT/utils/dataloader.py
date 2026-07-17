@@ -311,17 +311,20 @@ def TnTs2_collate(batch):
     locations = []
     modalities = []
     ids = []
+    vlocs = []
     for sample in batch:
         images.append(sample['image'])
         coords.append(sample['coords'])
         locations.append(sample['location'])
         modalities.append(sample['modality'])
         ids.append(sample['id'])
+        if "vloc" in sample.keys(): vlocs.append(sample["vloc"])
         
     return {
         'image': torch.stack(images, dim=0),
         'coords': torch.stack(coords, dim=0),
         'location': torch.stack(locations, dim=0),
         'modality': modalities, # just a basic list
-        'id': ids # just a basic list
+        'id': ids, # just a basic list
+        "vloc": torch.stack(vlocs, dim=0) if any(vlocs) else None
     }

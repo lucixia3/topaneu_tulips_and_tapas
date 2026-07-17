@@ -1,7 +1,9 @@
 import numpy as np, json, tqdm, torch, random
 from pprint import pprint
+import statistics
 from torchvision.transforms import Normalize, Compose, InterpolationMode
-from monai.transforms import Resize
+from monai.transforms import Resize, Spacing
+from monai.data import MetaTensor
 from scipy.ndimage import binary_dilation, binary_erosion, grey_dilation, grey_erosion, generate_binary_structure
 
 class BinarizeVessels():
@@ -17,9 +19,54 @@ class BinarizeAneus():
         return dct
     
 class BinarizeVesselChannel():
+    def __init__(self):
+        self.map = {
+            1: 1, # na
+            2: 2, # r
+            3: 2, # l
+            4: 3,  # r
+            6: 3, # l
+            5: 4, # r
+            7: 4, # l
+            8: 5, # r
+            9: 5, # l
+            10: 6, # na
+            11: 7, # r
+            12: 7, # l
+            13: 8, # r
+            14: 8, # l
+            15: 9, # na
+            16: 10, # na
+            17: 11, # r
+            19: 11, # l
+            18: 12, # r
+            20: 12, # l
+            21: 13,
+            22: 13,
+            23: 14,
+            24: 14,
+            25: 15,
+            26: 15,
+            27: 16,
+            28: 16,
+            29: 17,
+            30: 17,
+            31: 18,
+            32: 18,
+            33: 19,
+            34: 19,
+            35: 20,
+            36: 20
+        }
     def __call__(self, dct):
+        vals = [l for l in torch.unique(dct['image'][2, :]).tolist() if l != 0]
         dct['image'][2, :] = (dct['image'][2, :]!=0).to(torch.float32)
+        enc = [0]*20
+        for l in vals:
+            enc[self.map[l]-1] = 1
+        dct["vloc"] = torch.tensor(enc, dtype=torch.float32)
         return dct
+    
     
 class BinarizeAneuChannel():
     def __call__(self, dct):
@@ -68,20 +115,22 @@ class MaybeResize():
     
 class AdaNorm():
     def __init__(self, mr_mean, mr_std, ct_mean, ct_std):
-        self.norm_mr = Normalize([mr_mean], [mr_std])
-        self.norm_ct = Normalize([ct_mean], [ct_std])
-        
-    def __call__(self, dct):
-        if dct['modality']=='CTA':
-            if len(dct['image'].shape)==3: dct['image'] = self.norm_ct(dct['image'])
-            else: dct['image'][0, :] = self.norm_ct(dct['image'][0, :])
+        self.mr_mean, self.mr_std = mr_mean, mr_std
+        self.ct_mean, self.ct_std = ct_mean, ct_std
 
+    def __call__(self, dct):
+        if dct['modality'] == 'CTA':
+            mean, std = self.ct_mean, self.ct_std
         elif dct['modality'] == 'MRA':
-            if len(dct['image'].shape)==3: dct['image'] = self.norm_mr(dct['image'])
-            else: dct['image'][0, :] = self.norm_mr(dct['image'][0, :])
-            
-        else: raise ValueError('Unknown modality')
-        
+            mean, std = self.mr_mean, self.mr_std
+        else:
+            raise ValueError('Unknown modality')
+
+        if dct['image'].dim() == 3:
+            dct['image'] = (dct['image'] - mean) / std
+        else:
+            dct['image'][0, :] = (dct['image'][0, :] - mean) / std
+
         return dct
     
     @staticmethod
@@ -462,3 +511,54 @@ class RandomNonCorrespondingMorph():
         dct['image'][1, :] = self._apply_bin_morph(dct['image'][1, :])
         dct['image'][2, :] = self._apply_bin_morph(dct['image'][2, :])
         return dct
+    
+class Resample(): # to median
+    def __init__(self, spacing):
+        self.spacing = spacing
+        self.msk_resampler = Spacing(spacing, mode="nearest")
+        self.img_resampler = Spacing(spacing, mode="bilinear")
+        
+    def __call__(self, dct):
+        img, spacing = dct["image"], dct['spacing']
+        affine = torch.diag(torch.tensor([*spacing, 1.0], dtype=torch.float64))
+        if len(img.shape)==4:
+            c0 = self.img_resampler(MetaTensor(img[0, :].unsqueeze(0), affine=affine)).squeeze(0)
+            c1 = self.msk_resampler(MetaTensor(img[1, :].unsqueeze(0), affine=affine)).squeeze(0)
+            c2 = self.msk_resampler(MetaTensor(img[2, :].unsqueeze(0), affine=affine)).squeeze(0)
+            img = torch.stack([c0, c1, c2], dim=0)
+            dct["image"]=img
+            dct["spacing"]=self.spacing
+        else:
+            img = self.img_resampler(MetaTensor(img.unsqueeze(0), affine=affine)).squeeze(0)
+            dct["image"]=img
+            dct["spacing"]=self.spacing
+
+        return dct
+    
+    @staticmethod
+    def make():
+        return Resample((0.38999998569488525, 0.39000001549720764, 0.25004658102989197))
+    
+    @staticmethod
+    def compute_median(dataset):
+        spaces_d = []
+        spaces_h = []
+        spaces_w = []
+        for i in range(len(dataset)):
+            d, h, w = dataset[i]["spacing"]
+            spaces_d.append(d)
+            spaces_h.append(h)
+            spaces_w.append(w)
+        return statistics.median(spaces_d), statistics.median(spaces_h), statistics.median(spaces_w)
+class RandomResample():
+    def __init__(self, prob=0.8):
+        self.resampler = Resample.make()
+        self.prob = prob
+    
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+    
+    def __call__(self, dct):
+        if self.execute: return self.resampler(dct)
+        else: return dct

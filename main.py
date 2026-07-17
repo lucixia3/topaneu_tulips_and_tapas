@@ -1,7 +1,7 @@
 from pprint import pprint
 from pathlib import Path
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
-from TnT.utils.transforms import RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
+from TnT.utils.transforms import Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
 from TnT.trainer.base import Trainer
 from monai.transforms import (
@@ -21,9 +21,12 @@ from monai.transforms import (
 )
 
 if __name__ == '__main__':
+    PATCH_SIZE_VX = 64 # to avoid oom error on local
+    
     ## Do splits
     ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")
     folds = ds.split('0.8-0.1-0.1', 42)
+    
     for id, fold in zip(['train', 'test', 'val'], folds):
         if id == 'train': fold.preprocess(include_bg=0.2, max_items=10)
         else: fold.preprocess() 
@@ -32,7 +35,8 @@ if __name__ == '__main__':
     ## Prep trans
     transforms = Compose([
         MaybeToTensor(),
-        MaybeResize(size=64),
+        Resample.make(),
+        MaybeResize(size=PATCH_SIZE_VX),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
         AdaNorm.make(),
@@ -40,7 +44,8 @@ if __name__ == '__main__':
     
     train_transforms = Compose([
         MaybeToTensor(),
-        MaybeResize(64),
+        RandomResample(0.8),
+        MaybeResize(PATCH_SIZE_VX),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
         

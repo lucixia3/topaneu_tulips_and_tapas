@@ -16,6 +16,7 @@ class TnTS2(nn.Module):
         self.head = nn.Sequential(
             nn.Linear(404, self.n_locs+self.n_lats), # +4 input for [D, H, W, is_mr]
         )
+        self.vhead = nn.Linear(404, 20) # secondarz vessel location clf head, to be discarded at inference, but may help with acc or some shit idk
 
         
     # def forward(self, patch, coords, modalities):
@@ -63,16 +64,37 @@ class TnTS2(nn.Module):
         if not os.path.exists(pth): os.mkdir(pth)
         torch.save(self.bb.state_dict(), pth/'bb.pth')
         torch.save(self.head.state_dict(), pth/'head.pth')
+        torch.save(self.vhead.state_dict(), pth/'vhead.pth')
         
     def load(self, pth):
         pth=pl.Path(pth)
         self.bb.load_state_dict(torch.load(pth/'bb.pth'))
         self.head.load_state_dict(torch.load(pth/'head.pth'))
+        self.vhead.load_state_dict(torch.load(pth/'vhead.pth'))
         
-    def loss(self, patch, coords, modalities, targets):
-        x = self.forward(patch, coords, modalities)
+    def loss(self, patch, coords, modalities, targets, targets_vloc):
+        unbatched = isinstance(modalities, str)
+        if unbatched:
+            modalities = [modalities]
+            patch = patch.unsqueeze(0)
+            coords = coords.unsqueeze(0)
+
+        x = self.bb(patch)
+        modality_flag = torch.tensor([m == 'MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)
+        x = torch.concat([x, coords, modality_flag], dim=-1)
+        x_aloc = self.head(x)
+        x_vloc = self.vhead(x)
+
+        if unbatched:
+            x_aloc = x_aloc.squeeze(0)
+            x_vloc = x_vloc.squeeze(0)
         
-        loc_loss = F.cross_entropy(x[:, :self.n_locs], targets[:, :self.n_locs])
-        lat_loss = F.cross_entropy(x[:, self.n_locs:], targets[:, self.n_locs:])
         
-        return loc_loss+lat_loss
+        loc_loss = F.cross_entropy(x_aloc[:, :self.n_locs], targets[:, :self.n_locs])
+        lat_loss = F.cross_entropy(x_aloc[:, self.n_locs:], targets[:, self.n_locs:])
+        
+        if targets_vloc is not None:
+            vloc_loss = F.binary_cross_entropy_with_logits(x_vloc, targets_vloc.to(x_vloc.device))
+            return loc_loss+lat_loss+vloc_loss
+        else:
+            return loc_loss+lat_loss
