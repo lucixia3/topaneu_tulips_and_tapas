@@ -1,8 +1,8 @@
 from torch.utils.data import DataLoader, Dataset
 from pathlib import Path
 import os, tqdm, SimpleITK as sitk, json, numpy as np, random, torch, copy
-from scipy.ndimage import label
-from TnT.utils.transforms import LateralityInvariance
+from scipy.ndimage import label, binary_erosion
+from TnT.utils.transforms import LateralityInvariance, LateralityInvarianceForVessels
 from pprint import pprint
 
 class TopAneuDS(Dataset):
@@ -79,7 +79,7 @@ class TopAneu_TnTs2_DS(Dataset):
         )
         
         if smp['location'][0]==1: # if it is one the bg patches need to gen a random sphere
-            multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, multichannel_img.shape[2]*random.choice(np.arange(0.1, 0.5, 0.1).tolist()))
+            multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
         
         coords_in_vbb = [
             smp['coords'][0]-smp['vbb'][0][0],
@@ -199,7 +199,9 @@ class TopAneu_TnTs2_DS(Dataset):
             bg_patches.append(smp)
         return bg_patches
             
-    def _put_random_sphere_as_aneu(self, img, diameter):
+    def _put_random_sphere_as_aneu(self, img, spacing):
+        diameter_in_mm = random.choice(np.arange(2, 10.5, 0.25)) # generates a random aneurysm diameter in mms
+        diameter = max(spacing)*diameter_in_mm # converts into voxels bit lossy though since the spacing is non isometric, yielding basically an odd shape
         diameter = min(min(img.shape), round(diameter))
         obj = np.zeros((diameter, diameter, diameter), dtype=bool)
         radius = diameter / 2
@@ -299,6 +301,227 @@ class TopAneu_TnTs2_DS(Dataset):
         with open(path, 'r') as file:
             loaded = json.load(file)
         ds = TopAneu_TnTs2_DS(source=loaded['source'], transforms=transforms, cases=loaded['cases'])
+        ds.aneus = loaded['aneus']
+        ds.patch_size_mm = loaded['patch_size_mm']
+        return ds
+    ###########################
+    
+class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
+    ########################### builtins
+    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50):
+        self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
+        self.aneus = None
+        self.transforms = transforms
+        self.encode_location = LateralityInvarianceForVessels()
+        self.patch_size_mm = patch_size_mm
+        
+    def __len__(self):
+        return len(self.aneus)
+    
+    def __getitem__(self, idx):
+        if not self.is_patched: self.preprocess()
+        smp = self.aneus[idx]
+        img_smp = self.image_ds[smp['idx']]
+        
+        multichannel_img = np.stack( # 4D array: [C, D, H, W]
+            [
+                self._center_crop(img_smp['image'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
+                self._center_crop(img_smp['location_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
+                self._center_crop(img_smp['vessel_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm)
+            ], axis=0
+        )
+        
+        multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
+        
+        coords_in_vbb = [
+            smp['coords'][0]-smp['vbb'][0][0],
+            smp['coords'][1]-smp['vbb'][1][0],
+            smp['coords'][2]-smp['vbb'][2][0]
+        ]
+        
+        dct = {
+            'image': multichannel_img,
+            'location': smp['location'], # multihot
+            'coords': np.array(coords_in_vbb, dtype=int)/np.array(smp['vbb.shape'], dtype=int), # relative
+            'modality': smp['modality'], # string
+            'id': img_smp['id'],
+            'spacing': img_smp['spacing']
+        }
+        
+        if self.transforms:
+            dct = self.transforms(dct)
+        
+        return dct
+    ###########################
+    ########################### properties
+    @property
+    def is_patched(self):
+        return self.aneus is not None
+    ########################### 
+    ########################### privates
+    def _center_crop(self, img, coords, spacing, size_mm):
+        sz_mm = round(size_mm/2)
+        sz = [round(sz_mm/sp) for sp in spacing]
+        shape = img.shape
+        
+        coords_lower = []
+        coords_upper = []
+        for c_ax, sh_ax, sz_ax in zip(coords, shape, sz):
+
+            upper = c_ax+sz_ax
+            lower = c_ax-sz_ax
+            
+            if upper<=sh_ax and lower >=0:
+                coords_lower.append(lower)
+                coords_upper.append(upper)
+            elif upper > sh_ax:
+                diff = upper-sh_ax
+                coords_upper.append(sh_ax)
+                coords_lower.append(lower-diff)
+            elif lower < 0:
+                diff = lower
+                coords_lower.append(0)
+                coords_upper.append(upper+abs(diff))
+        
+        crop = img[
+            int(coords_lower[0]):int(coords_upper[0]),
+            int(coords_lower[1]):int(coords_upper[1]),
+            int(coords_lower[2]):int(coords_upper[2])
+        ]            
+        return crop
+    
+    def _center_mask_out(self, img, coords, spacing, size_mm):
+        sz_mm = round(size_mm/2)
+        sz = [round(sz_mm/sp) for sp in spacing]
+        shape = img.shape
+        
+        coords_lower = []
+        coords_upper = []
+        for c_ax, sh_ax, sz_ax in zip(coords, shape, sz):
+
+            upper = c_ax+sz_ax
+            lower = c_ax-sz_ax
+            
+            if upper<=sh_ax and lower >=0:
+                coords_lower.append(lower)
+                coords_upper.append(upper)
+            elif upper > sh_ax:
+                diff = upper-sh_ax
+                coords_upper.append(sh_ax)
+                coords_lower.append(lower-diff)
+            elif lower < 0:
+                diff = lower
+                coords_lower.append(0)
+                coords_upper.append(upper+abs(diff))
+        
+        img[
+            int(coords_lower[0]):int(coords_upper[0]),
+            int(coords_lower[1]):int(coords_upper[1]),
+            int(coords_lower[2]):int(coords_upper[2])
+        ] = 0      
+        return img
+            
+    def _put_random_sphere_as_aneu(self, img, spacing):
+        diameter_in_mm = random.choice(np.arange(2, 10.5, 0.25)) # generates a random aneurysm diameter in mms
+        diameter = max(spacing)*diameter_in_mm # converts into voxels bit lossy though since the spacing is non isometric, yielding basically an odd shape
+        diameter = min(min(img.shape), round(diameter))
+        obj = np.zeros((diameter, diameter, diameter), dtype=bool)
+        radius = diameter / 2
+        center = (diameter - 1) / 2  # e.g. for diameter=3: center=1.0
+
+        z, y, x = np.ogrid[:diameter, :diameter, :diameter]
+        dist_sq = (x - center)**2 + (y - center)**2 + (z - center)**2
+
+        obj[dist_sq <= radius**2] = True
+        obj = obj.astype(np.uint8)
+        size_sph = obj.shape
+        center = [round(s/2) for s in img.shape[1:]]
+        lowers = [c-round(s) for c, s in zip(center, size_sph)]
+    
+        img[1, lowers[0]:lowers[0]+size_sph[0], lowers[1]:lowers[1]+size_sph[1], lowers[2]:lowers[2]+size_sph[2]] = obj
+        return img
+    
+    ###########################
+    ########################### publics
+    def preprocess(self, patches_per_vloc=42, max_items=-1):
+        if self.is_patched: return
+        self.aneus = []
+        for i in tqdm.tqdm(range(len(self.image_ds)), desc='Making Patches from Vessels'):
+            sample = self.image_ds[i]
+            
+            vessel_mask = sample['vessel_mask']
+            
+            vbb_coords = np.argwhere(vessel_mask) # VBB = Vessel Bounding Box
+            vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
+            vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
+            vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
+            
+            vessel_cls = np.unique(vessel_mask)
+            
+            for vc in vessel_cls:
+                if vc==0:continue # skip bg
+                binarized = vessel_mask==vc
+                surface = binarized & ~binary_erosion(binarized)
+                for obj in range(patches_per_vloc):
+                    possible_seeds = np.argwhere(surface)
+                    seed = possible_seeds[random.choice(range(possible_seeds.shape[0])), :]
+                    smp = {
+                        'idx': i, # the base image idx in the base dataset
+                        'coords': seed.tolist(), # the centroid
+                        'location': self.encode_location(vc),
+                        'modality': sample['modality'],
+                        'vbb': [vbb_d, vbb_h, vbb_w],
+                        'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
+                        'id': sample['id']
+                    }
+                    self.aneus.append(smp)
+                
+            if i == max_items:break
+        
+    def split(self, folds='0.8-0.2', random_seed=42):
+        folds = [float(val) for val in folds.split('-')]
+        assert sum(folds)==1, 'Sum of folds must be equal to 1'
+        random.seed(random_seed)
+        rndm_cases = self.image_ds.cases.copy()
+        random.shuffle(rndm_cases)
+        n_cases = len(self.image_ds)
+        fold_ds = []
+        subsets = []
+        lower = 0
+        for fold in folds:
+            upper = round(n_cases*fold)+lower
+            upper = upper if upper <= n_cases else n_cases
+            subset = rndm_cases[lower:upper]
+            fold_ds.append(TopAneu_TnTs2_DS_for_vessel_pt(self.image_ds.src, transforms=None, cases=subset, patch_size_mm=self.patch_size_mm))
+            subsets.append(subset)
+            lower=upper
+        
+        for i, sub in enumerate(subsets):
+            other = []
+            for j, ss in enumerate(subsets):
+                if j == i: continue
+                other += ss
+            assert not any([s in other for s in sub]), 'Found leakage between sets.'
+        
+        return fold_ds
+    
+    def save(self, path):
+        saveable = {
+            'cases': self.image_ds.cases,
+            'source': str(self.image_ds.src),
+            'aneus': self.aneus,
+            'patch_size_mm': self.patch_size_mm
+        }
+        path = str(path)+'.json' if not str(path).endswith('.json') else str(path)
+        with open(path, 'w') as file:
+            json.dump(saveable, file, indent=4)
+        
+    @staticmethod
+    def load(path, transforms=None):
+        path = str(path)+'.json' if not str(path).endswith('.json') else str(path)
+        with open(path, 'r') as file:
+            loaded = json.load(file)
+        ds = TopAneu_TnTs2_DS_for_vessel_pt(source=loaded['source'], transforms=transforms, cases=loaded['cases'])
         ds.aneus = loaded['aneus']
         ds.patch_size_mm = loaded['patch_size_mm']
         return ds

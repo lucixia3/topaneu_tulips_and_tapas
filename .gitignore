@@ -229,6 +229,7 @@ pyrightconfig.json
 
 TnTS2_training*/
 best_val_loss/
-train.json
-test.json
-val.json
+*train.json
+*test.json
+*val.json
+test_outputs/

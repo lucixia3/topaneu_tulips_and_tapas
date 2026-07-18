@@ -98,7 +98,7 @@ class Trainer():
             model.train()
             for batch in tqdm.tqdm(train_dl, desc='Training batches'):
                 self.optim.zero_grad()
-                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device), batch["vloc"])
+                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
                 l.backward()
                 self.optim.step()
                 loss_history.add_train(l)
@@ -107,7 +107,7 @@ class Trainer():
             model.eval()
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
-                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device), batch["vloc"])
+                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
                     loss_history.add_val(l)
             
             ## scheduling
@@ -137,12 +137,11 @@ class Trainer():
         model.load(wdir/f'best_val_loss')
         return model
                 
-    def test(self, model, test_dl, best_model_dir=None):
+    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeTarget()):
         if best_model_dir is not None:
             model.load(best_model_dir)
         model.to(self.device)
         model.eval()
-        decoder = DecodeTarget()
         preds = []
         gts = []
         ids = []

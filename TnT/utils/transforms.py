@@ -19,54 +19,9 @@ class BinarizeAneus():
         return dct
     
 class BinarizeVesselChannel():
-    def __init__(self):
-        self.map = {
-            1: 1, # na
-            2: 2, # r
-            3: 2, # l
-            4: 3,  # r
-            6: 3, # l
-            5: 4, # r
-            7: 4, # l
-            8: 5, # r
-            9: 5, # l
-            10: 6, # na
-            11: 7, # r
-            12: 7, # l
-            13: 8, # r
-            14: 8, # l
-            15: 9, # na
-            16: 10, # na
-            17: 11, # r
-            19: 11, # l
-            18: 12, # r
-            20: 12, # l
-            21: 13,
-            22: 13,
-            23: 14,
-            24: 14,
-            25: 15,
-            26: 15,
-            27: 16,
-            28: 16,
-            29: 17,
-            30: 17,
-            31: 18,
-            32: 18,
-            33: 19,
-            34: 19,
-            35: 20,
-            36: 20
-        }
     def __call__(self, dct):
-        vals = [l for l in torch.unique(dct['image'][2, :]).tolist() if l != 0]
         dct['image'][2, :] = (dct['image'][2, :]!=0).to(torch.float32)
-        enc = [0]*20
-        for l in vals:
-            enc[self.map[l]-1] = 1
-        dct["vloc"] = torch.tensor(enc, dtype=torch.float32)
         return dct
-    
     
 class BinarizeAneuChannel():
     def __call__(self, dct):
@@ -562,3 +517,199 @@ class RandomResample():
     def __call__(self, dct):
         if self.execute: return self.resampler(dct)
         else: return dct
+        
+class LateralityInvarianceForVessels():
+    def __init__(self):
+        self.locmap = {
+            0:0,
+            1: 1, # na
+            2: 2, # r
+            3: 2, # l
+            4: 3,  # r
+            6: 3, # l
+            5: 4, # r
+            7: 4, # l
+            8: 5, # r
+            9: 5, # l
+            10: 6, # na
+            11: 7, # r
+            12: 7, # l
+            13: 8, # r
+            14: 8, # l
+            15: 9, # na
+            16: 10, # na
+            17: 11, # r
+            19: 11, # l
+            18: 12, # r
+            20: 12, # l
+            21: 13,
+            22: 13,
+            23: 14,
+            24: 14,
+            25: 15,
+            26: 15,
+            27: 16,
+            28: 16,
+            29: 17,
+            30: 17,
+            31: 18,
+            32: 18,
+            33: 19,
+            34: 19,
+            35: 20,
+            36: 20
+        }
+        self.latmap = { # encoded [R, L]
+            0: [0,0],
+            1: [0,0], # na
+            2: [1,0], # r
+            3: [0,1], # l
+            4: [1,0],  # r
+            6: [0,1], # l
+            5: [1,0], # r
+            7: [0,1], # l
+            8: [1,0], # r
+            9: [0,1], # l
+            10: [0,0], # na
+            11: [1,0], # r
+            12: [0,1], # l
+            13: [1,0], # r
+            14: [0,1], # l
+            15: [0,0], # na
+            16: [0,0], # na
+            17: [1,0], # r
+            19: [0,1], # l
+            18: [1,0], # r
+            20: [0,1], # l
+            21: [1,0],
+            22: [0,1],
+            23: [1,0],
+            24: [0,1],
+            25: [1,0],
+            26: [0,1],
+            27: [1,0],
+            28: [0,1],
+            29: [1,0],
+            30: [0,1],
+            31: [1,0],
+            32: [0,1],
+            33: [1,0],
+            34: [0,1],
+            35: [1,0],
+            36: [0,1]
+        }
+        self.n_locs, self.n_lats = self.get_n_locs_lats()
+        
+    def __call__(self, dct):
+        if isinstance(dct, dict):
+            loc = self.locmap[dct['location']]
+            lat = self.latmap[dct['location']]
+            print(loc)
+            hot = [0]*self.n_locs
+            hot[loc]=1 
+            hot += lat
+            
+            dct['location'] = hot
+            return dct
+        else:
+            loc = self.locmap[dct]
+            lat = self.latmap[dct]
+        
+            hot = [0]*self.n_locs
+            hot[loc]=1
+            hot += lat
+            
+            return hot
+        
+    @staticmethod
+    def get_n_locs_lats():
+        return 21, 2
+    
+class DecodeTargetForVessels():
+    def __init__(self):
+        self.map = {
+            0:'background',
+            1:'BA',
+            2:'P1P2',
+            3:'ICA-C6-C7', 
+            4:'M1',
+            5:'Pcom',
+            6:'Acom',
+            7:'A1A2',
+            8:'A3',
+            9:'3rd-A2',
+            10:'3rd-A3',
+            11:'M2',
+            12:'M3',
+            13:'P3P4',
+            14:'VA',
+            15:'SCA',
+            16:'AICA',
+            17:'PICA',
+            18:'AChA',
+            19:'OA',
+            20:'ICA-C1-C5'
+        }
+        self.lit_loc_lookup = {
+            "background": 0,
+            "BA": 1,
+            "R-P1P2": 2,
+            "L-P1P2": 3,
+            "R-ICA-C6-C7": 4,
+            "R-M1": 5,
+            "L-ICA-C6-C7": 6,
+            "L-M1": 7,
+            "R-Pcom": 8,
+            "L-Pcom": 9,
+            "Acom": 10,
+            "R-A1A2": 11,
+            "L-A1A2": 12,
+            "R-A3": 13,
+            "L-A3": 14,
+            "3rd-A2": 15,
+            "3rd-A3": 16,
+            "R-M2": 17,
+            "R-M3": 18,
+            "L-M2": 19,
+            "L-M3": 20,
+            "R-P3P4": 21,
+            "L-P3P4": 22,
+            "R-VA": 23,
+            "L-VA": 24,
+            "R-SCA": 25,
+            "L-SCA": 26,
+            "R-AICA": 27,
+            "L-AICA": 28,
+            "R-PICA": 29,
+            "L-PICA": 30,
+            "R-AChA": 31,
+            "L-AChA": 32,
+            "R-OA": 33,
+            "L-OA": 34,
+            "R-ICA-C1-C5": 35,
+            "L-ICA-C1-C5": 36
+        }
+        self.rev_map = {v:k for k, v in self.map.items()}
+        self.ignore_lat = ['background', 'BA', 'Acom', '3rd-A2', '3rd-A3']
+        
+    def __call__(self, obj):
+        if len(obj.shape)==1:
+            return self._conv_row(obj)
+        elif len(obj.shape)==2:
+            classes = []
+            for i in range(obj.shape[0]):
+                classes.append(self._conv_row(obj[i]))
+            return classes
+        else: raise RuntimeError(f'Expected object to have 1 dimension if unbatched or 2 dimensions if batched, but received {len(obj.shape)} dimensions instead')
+            
+    def _conv_row(self, row):
+        loc_20, prob_loc = max(enumerate(row[:21]), key=lambda x: x[1])
+        loc_20_lit = self.map[loc_20]
+        lat, prob_lat = max(enumerate(row[21:]), key=lambda x: x[1])
+        lat_lit = ['R', 'L'][lat]
+
+        if loc_20_lit not in self.ignore_lat:
+            loc_lit = lat_lit+'-'+loc_20_lit
+        else: loc_lit = loc_20_lit
+        
+        return loc_lit, lat_lit, self.lit_loc_lookup[loc_lit]

@@ -9,22 +9,13 @@ from TnT.utils.transforms import LateralityInvariance
 from monai.networks.nets import resnet50#, resnet18
 
 class TnTS2(nn.Module):
-    def __init__(self):
+    def __init__(self, n_locs, n_lats):
         super().__init__()
-        self.n_locs, self.n_lats = LateralityInvariance.get_n_locs_lats()
+        self.n_locs, self.n_lats = n_locs, n_lats
         self.bb = resnet50(spatial_dims=3, n_input_channels=3) # outputs [B, 400]
-        self.head = nn.Sequential(
-            nn.Linear(404, self.n_locs+self.n_lats), # +4 input for [D, H, W, is_mr]
-        )
-        self.vhead = nn.Linear(404, 20) # secondarz vessel location clf head, to be discarded at inference, but may help with acc or some shit idk
-
+        self.laterality = nn.Linear(404, self.n_lats)
+        self.location = nn.Linear(404, self.n_locs) # in pretraining is the vessel classes
         
-    # def forward(self, patch, coords, modalities):
-    #     if isinstance(modalities, str): modalities=[modalities]
-    #     x = self.bb(patch)
-    #     x = torch.concat([x, coords, torch.tensor([m=='MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)], dim=-1)
-    #     x = self.head(x)
-    #     return x
     def forward(self, patch, coords, modalities):
         unbatched = isinstance(modalities, str)
         if unbatched:
@@ -35,25 +26,30 @@ class TnTS2(nn.Module):
         x = self.bb(patch)
         modality_flag = torch.tensor([m == 'MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)
         x = torch.concat([x, coords, modality_flag], dim=-1)
-        x = self.head(x)
+        lat = self.laterality(x)
+        loc = self.location(x)
 
         if unbatched:
-            x = x.squeeze(0)
+            lat = lat.squeeze(0)
+            loc = loc.squeeze(0)
 
-        return x
+        return lat, loc
     
     def classify(self, patch, coords, modalities):
         unbatched = isinstance(modalities, str)
-        sigmoid = F.sigmoid(self.forward(patch, coords, modalities))
-        if unbatched: sigmoid = sigmoid.unsqueeze(0)
-        assigned = torch.zeros_like(sigmoid, dtype=torch.uint8)
-        for b_item in range(sigmoid.shape[0]):
-            loc = torch.argmax(sigmoid[b_item, :self.n_locs]).item()
-            lat = torch.argmax(sigmoid[b_item, self.n_locs:]).item()
-            assigned[b_item, loc]=1
-            assigned[b_item, self.n_locs+lat]=1
-        if unbatched: assigned=assigned.squeeze(0)
-        return assigned
+        if unbatched: raise RuntimeError("Unbatched data is not supported")
+        lat, loc = self.forward(patch, coords, modalities)
+        lat_sigmoid, loc_sigmoid = F.sigmoid(lat), F.sigmoid(loc)
+        
+        assigned_lat = torch.zeros_like(lat_sigmoid, dtype=torch.uint8)
+        assigned_loc = torch.zeros_like(loc_sigmoid, dtype=torch.uint8)
+        for b_item in range(lat_sigmoid.shape[0]):
+            loc = torch.argmax(loc_sigmoid[b_item, :]).item()
+            lat = torch.argmax(lat_sigmoid[b_item, :]).item()
+            assigned_lat[b_item, loc]=1
+            assigned_loc[b_item, lat]=1
+        
+        return assigned_lat, assigned_loc
     
     def save(self, pth, overwrite=False):
         pth = pl.Path(pth)
@@ -63,38 +59,24 @@ class TnTS2(nn.Module):
             pth=pth.parent/override
         if not os.path.exists(pth): os.mkdir(pth)
         torch.save(self.bb.state_dict(), pth/'bb.pth')
-        torch.save(self.head.state_dict(), pth/'head.pth')
-        torch.save(self.vhead.state_dict(), pth/'vhead.pth')
+        torch.save(self.location.state_dict(), pth/'head.pth')
+        torch.save(self.laterality.state_dict(), pth/'laterality.pth')
         
     def load(self, pth):
         pth=pl.Path(pth)
         self.bb.load_state_dict(torch.load(pth/'bb.pth'))
-        self.head.load_state_dict(torch.load(pth/'head.pth'))
-        self.vhead.load_state_dict(torch.load(pth/'vhead.pth'))
+        self.location.load_state_dict(torch.load(pth/'location.pth'))
+        self.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
         
-    def loss(self, patch, coords, modalities, targets, targets_vloc):
+    def loss(self, patch, coords, modalities, targets):
         unbatched = isinstance(modalities, str)
         if unbatched:
             modalities = [modalities]
             patch = patch.unsqueeze(0)
             coords = coords.unsqueeze(0)
 
-        x = self.bb(patch)
-        modality_flag = torch.tensor([m == 'MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)
-        x = torch.concat([x, coords, modality_flag], dim=-1)
-        x_aloc = self.head(x)
-        x_vloc = self.vhead(x)
-
-        if unbatched:
-            x_aloc = x_aloc.squeeze(0)
-            x_vloc = x_vloc.squeeze(0)
+        lat, loc = self.forward(patch, coords, modalities)
         
-        
-        loc_loss = F.cross_entropy(x_aloc[:, :self.n_locs], targets[:, :self.n_locs])
-        lat_loss = F.cross_entropy(x_aloc[:, self.n_locs:], targets[:, self.n_locs:])
-        
-        if targets_vloc is not None:
-            vloc_loss = F.binary_cross_entropy_with_logits(x_vloc, targets_vloc.to(x_vloc.device))
-            return loc_loss+lat_loss+vloc_loss
-        else:
-            return loc_loss+lat_loss
+        loc_loss = F.cross_entropy(loc, targets[:, :self.n_locs])
+        lat_loss = F.cross_entropy(lat, targets[:, self.n_locs:])
+        return loc_loss+lat_loss
