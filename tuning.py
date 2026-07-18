@@ -1,7 +1,8 @@
 from pprint import pprint
 from pathlib import Path
+import os, datetime
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
-from TnT.utils.transforms import Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
+from TnT.utils.transforms import DecodeTarget, LateralityInvariance,  Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
 from TnT.trainer.base import Trainer
 from monai.transforms import (
@@ -22,15 +23,14 @@ from monai.transforms import (
 
 if __name__ == '__main__':
     PATCH_SIZE_VX = 64 # to avoid oom error on local
+    EARLY_STOP_PATCHING = True
     
     ## Do splits
-    ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")
-    folds = ds.split('0.8-0.1-0.1', 42)
+    # ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")
+    # folds = ds.split('0.8-0.1-0.1', 42)
     
-    for id, fold in zip(['train', 'test', 'val'], folds):
-        if id == 'train': fold.preprocess(include_bg=0.2, max_items=10)
-        else: fold.preprocess() 
-        fold.save(id)
+    # for id, fold in zip(['train', 'test', 'val'], folds):
+    #     fold.save(id)
     
     ## Prep trans
     transforms = Compose([
@@ -111,9 +111,23 @@ if __name__ == '__main__':
     ])
     
     ## load splits
-    train = TopAneu_TnTs2_DS.load('train.json', train_transforms)
-    val = TopAneu_TnTs2_DS.load('val.json', transforms)
-    test = TopAneu_TnTs2_DS.load('test.json', transforms)
+    if not os.path.exists('tuning-train.json'):
+        train = TopAneu_TnTs2_DS.load('train.json', train_transforms)
+        train.preprocess(include_bg=0.2, max_items=1 if EARLY_STOP_PATCHING else -1)
+        train.save('tuning-train.json')
+    else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms)
+    
+    if not os.path.exists('tuning-val.json'):
+        val = TopAneu_TnTs2_DS.load('val.json', transforms)
+        val.preprocess(max_items=1 if EARLY_STOP_PATCHING else -1)
+        val.save('tuning-val.json')
+    else: val = TopAneu_TnTs2_DS.load('tuning-val.json', transforms)
+    
+    if not os.path.exists('tuning-test.json'):
+        test = TopAneu_TnTs2_DS.load('test.json', transforms)
+        test.preprocess(max_items=1 if EARLY_STOP_PATCHING else -1)
+        test.save('tuning-test.json')
+    else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
     
     ## PrEP DL
     train_dl = DataLoader(train, batch_size=4, shuffle=True)
@@ -122,7 +136,7 @@ if __name__ == '__main__':
     
     ## setup objs
     trainer = Trainer()
-    model = TnTS2()
+    model = TnTS2.from_pretrained('best_pretrained_model', *LateralityInvariance.get_n_locs_lats())
     
     ## train or load
     model = trainer.train(model, train_dl, val_dl, 10, 5)

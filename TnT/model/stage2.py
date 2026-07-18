@@ -67,6 +67,15 @@ class TnTS2(nn.Module):
         self.bb.load_state_dict(torch.load(pth/'bb.pth'))
         self.location.load_state_dict(torch.load(pth/'location.pth'))
         self.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
+    
+    @staticmethod
+    def from_pretrained(pth, n_locs, n_lats):
+        pth=pl.Path(pth)
+        model = TnTS2(n_locs, n_lats)
+        try: model = model.load(pth) ## will error if loc/lat missmatch
+        except: ## instead only load backbone and laterality head, build location head from scratch
+            model.bb.load_state_dict(torch.load(pth/'bb.pth'))
+            model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
         
     def loss(self, patch, coords, modalities, targets):
         unbatched = isinstance(modalities, str)

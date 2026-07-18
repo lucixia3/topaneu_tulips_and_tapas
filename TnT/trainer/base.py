@@ -116,21 +116,24 @@ class Trainer():
             loss_history.plot_progress(wdir)
             
             ## saving
-            model.save(wdir/f'epoch_{e}')
+            model.save(wdir/f'latest_epoch')
+            
+            ## saving if best
+            if all([l==b for l, b in zip(loss_history.latest(), loss_history.min())]):
+                model.save(wdir/'best_val_loss')
+                best_epoch, best_loss = loss_history.min()
+                with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
+                    f.write(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
+                
             
             ## early stopping
             if loss_history.has_converged(early_stop):
-                best_epoch, best_loss = loss_history.min()
-                print(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
-                shutil.copytree(wdir/f'epoch_{best_epoch}', wdir/f'best_val_loss')
-                with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
-                    f.write(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
                 break
         
         else:
             best_epoch, best_loss = loss_history.min()
             print(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
-            shutil.copytree(wdir/f'epoch_{best_epoch}', wdir/f'best_val_loss')
+            shutil.copytree(wdir/f'latest_epoch', wdir/f'best_val_loss')
             with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
                 f.write(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
                 
