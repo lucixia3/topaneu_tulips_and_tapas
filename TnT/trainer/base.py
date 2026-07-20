@@ -116,7 +116,7 @@ class Trainer():
             loss_history.plot_progress(wdir)
             
             ## saving
-            model.save(wdir/f'latest_epoch')
+            model.save(wdir/f'latest_epoch', overwrite=True)
             
             ## saving if best
             if all([l==b for l, b in zip(loss_history.latest(), loss_history.min())]):
