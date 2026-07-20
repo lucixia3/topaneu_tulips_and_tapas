@@ -76,6 +76,7 @@ class TnTS2(nn.Module):
         except: ## instead only load backbone and laterality head, build location head from scratch
             model.bb.load_state_dict(torch.load(pth/'bb.pth'))
             model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
+        return model
         
     def loss(self, patch, coords, modalities, targets):
         unbatched = isinstance(modalities, str)
