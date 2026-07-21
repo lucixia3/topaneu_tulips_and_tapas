@@ -6,7 +6,7 @@ import os, tqdm, torch, numpy as np, shutil, datetime, json
 from TnT.utils.transforms import DecodeTarget
 import matplotlib.pyplot as plt
 from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
-
+from accelerate import Accelerator
 
 class Trainer():
     def __init__(self, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, device='cuda'):
@@ -36,6 +36,8 @@ class Trainer():
         self.optim = self.optim(model.parameters(), self.lr)
         self.sched = self.sched(self.optim, epochs)
         loss_history = LossHistory()
+        accel = Accelerator(mixed_precision='bf16')
+        model, self.optim, train_dl, self.sched = accel.prepare(model, self.optim, train_dl, self.sched)
         
         fmt = f"0{len(str(epochs))}d"
 
@@ -43,19 +45,21 @@ class Trainer():
             print(f'------------------- Epoch {e:{fmt}}/{epochs} -------------------')
             ## Training step
             model.train()
-            for batch in tqdm.tqdm(train_dl, desc='Training batches'):
+            for batch in tqdm.tqdm(train_dl, desc='Training batches', disable=not accel.is_main_process):
                 self.optim.zero_grad()
-                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
-                l.backward()
+                with accel.autocast():
+                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
+                accel.backward(l)
                 self.optim.step()
-                loss_history.add_train(l)
+                loss_history.add_train(accel.gather(l).mean())
             
             ## Validation step
             model.eval()
             with torch.no_grad():
-                for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
-                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
-                    loss_history.add_val(l)
+                for batch in tqdm.tqdm(val_dl, desc='Validating batches', disable=not accel.is_main_process):
+                    with accel.autocast():
+                        l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
+                    loss_history.add_val(accel.gather(l).mean())
             
             ## scheduling
             self.sched.step()

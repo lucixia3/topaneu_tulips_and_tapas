@@ -9,3 +9,4 @@ scipy
 tqdm
 monai
 scikit-learn
+accelerate

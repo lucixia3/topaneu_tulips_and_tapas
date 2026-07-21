@@ -25,6 +25,7 @@ dependencies = [
   "tqdm",
   "monai",
   "scikit-learn",
+  "accelerate",
 ]
 
 [tool.setuptools.packages.find]
