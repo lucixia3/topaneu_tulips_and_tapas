@@ -31,19 +31,21 @@ class Trainer():
             f.write(f"Val Transforms: {val_dl.dataset.transforms}\n")
         
     def train(self, model, loss, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y'))):
-        os.makedirs(wdir)
-        self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir)
         model.to(self.device)
         self.optim = self.optim(model.parameters(), self.lr)
         self.sched = self.sched(self.optim, epochs)
         loss_history = LossHistory()
         accel = Accelerator(mixed_precision='bf16')
         model, self.optim, train_dl, self.sched = accel.prepare(model, self.optim, train_dl, self.sched)
+        if accel.is_main_process:
+            os.makedirs(wdir)
+            self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir)
+        accel.wait_for_everyone()
         
         fmt = f"0{len(str(epochs))}d"
 
         for e in range(1, epochs+1):
-            print(f'------------------- Epoch {e:{fmt}}/{epochs} -------------------')
+            if accel.is_main_process: print(f'------------------- Epoch {e:{fmt}}/{epochs} -------------------')
             ## Training step
             model.train()
             for batch in tqdm.tqdm(train_dl, desc='Training batches', disable=not accel.is_main_process):
@@ -66,9 +68,9 @@ class Trainer():
             
             ## scheduling
             self.sched.step()
+            loss_history.fin_epoch()
             
             if accel.is_main_process:
-                loss_history.fin_epoch()
                 loss_history.plot_progress(wdir)
                 
                 ## saving
