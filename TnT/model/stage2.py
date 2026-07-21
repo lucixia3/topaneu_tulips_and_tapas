@@ -57,9 +57,9 @@ class TnTS2(nn.Module):
             override = datetime.datetime.now().strftime(r'TnTS2_from-%H:%M:%S-%d.%m.%y')
             print(f"INFO: {pth} already exists, using {pth.parent/override} instead")
             pth=pth.parent/override
-        if not os.path.exists(pth): os.mkdir(pth)
+        if not os.path.exists(pth): os.makedirs(pth)
         torch.save(self.bb.state_dict(), pth/'bb.pth')
-        torch.save(self.location.state_dict(), pth/'head.pth')
+        torch.save(self.location.state_dict(), pth/'location.pth')
         torch.save(self.laterality.state_dict(), pth/'laterality.pth')
         
     def load(self, pth):

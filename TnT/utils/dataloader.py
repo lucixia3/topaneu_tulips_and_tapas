@@ -57,7 +57,7 @@ class TopAneu_TnTs2_DS(Dataset):
     ########################### builtins
     def __init__(self, source, transforms=None, cases=None, patch_size_mm=50):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
-        self.aneus = None
+        self.aneus = []
         self.transforms = transforms
         self.encode_location = LateralityInvariance()
         self.patch_size_mm = patch_size_mm
@@ -104,7 +104,7 @@ class TopAneu_TnTs2_DS(Dataset):
     ########################### properties
     @property
     def is_patched(self):
-        return self.aneus is not None
+        return len(self.aneus)>0
     ########################### 
     ########################### privates
     def _center_crop(self, img, coords, spacing, size_mm):
@@ -281,6 +281,13 @@ class TopAneu_TnTs2_DS(Dataset):
                 if j == i: continue
                 other += ss
             assert not any([s in other for s in sub]), 'Found leakage between sets.'
+            
+        if self.is_patched:
+            for fold in fold_ds:
+                for aneu in self.aneus:
+                    if aneu['id']+'_0000.nii.gz' in fold.image_ds.cases:
+                        aneu['idx'] = [i for i, c in enumerate(fold.image_ds.cases) if c == aneu['id']+'_0000.nii.gz'][0]
+                        fold.aneus.append(aneu)
         
         return fold_ds
     
@@ -294,6 +301,11 @@ class TopAneu_TnTs2_DS(Dataset):
         path = str(path)+'.json' if not str(path).endswith('.json') else str(path)
         with open(path, 'w') as file:
             json.dump(saveable, file, indent=4)
+    
+    def append(self, to_add):
+        if to_add.image_ds.src != self.image_ds.src: raise RuntimeError('Sources dont match between datasets, cant append')
+        self.aneus += to_add.aneus
+        self.image_ds.cases += to_add.image_ds.cases
         
     @staticmethod
     def load(path, transforms=None):
@@ -301,16 +313,24 @@ class TopAneu_TnTs2_DS(Dataset):
         with open(path, 'r') as file:
             loaded = json.load(file)
         ds = TopAneu_TnTs2_DS(source=loaded['source'], transforms=transforms, cases=loaded['cases'])
-        ds.aneus = loaded['aneus']
+        ds.aneus = loaded['aneus'] if loaded['aneus'] is not None else []
         ds.patch_size_mm = loaded['patch_size_mm']
         return ds
+    
+    @staticmethod
+    def join(folds):
+        if len(folds) == 1: return folds[0]
+        new_ds = folds[0]
+        for i in range(1, len(folds)):
+            new_ds.append(folds[i])
+        return new_ds
     ###########################
     
 class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
     ########################### builtins
     def __init__(self, source, transforms=None, cases=None, patch_size_mm=50):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
-        self.aneus = None
+        self.aneus = []
         self.transforms = transforms
         self.encode_location = LateralityInvarianceForVessels()
         self.patch_size_mm = patch_size_mm
@@ -356,7 +376,7 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
     ########################### properties
     @property
     def is_patched(self):
-        return self.aneus is not None
+        return len(self.aneus)>0
     ########################### 
     ########################### privates
     def _center_crop(self, img, coords, spacing, size_mm):
@@ -445,7 +465,6 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
     ########################### publics
     def preprocess(self, patches_per_vloc=42, max_items=-1):
         if self.is_patched: return
-        self.aneus = []
         for i in tqdm.tqdm(range(len(self.image_ds)), desc='Making Patches from Vessels'):
             sample = self.image_ds[i]
             
@@ -502,6 +521,12 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
                 if j == i: continue
                 other += ss
             assert not any([s in other for s in sub]), 'Found leakage between sets.'
+            
+        if self.is_patched:
+            for fold in fold_ds:
+                for aneu in self.aneus:
+                    if aneu['id']+'_0000.nii.gz' in fold.image_ds.cases:
+                        fold.aneus.append(aneu)
         
         return fold_ds
     
@@ -522,7 +547,7 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
         with open(path, 'r') as file:
             loaded = json.load(file)
         ds = TopAneu_TnTs2_DS_for_vessel_pt(source=loaded['source'], transforms=transforms, cases=loaded['cases'])
-        ds.aneus = loaded['aneus']
+        ds.aneus = loaded['aneus'] if loaded['aneus'] is not None else []
         ds.patch_size_mm = loaded['patch_size_mm']
         return ds
     ###########################

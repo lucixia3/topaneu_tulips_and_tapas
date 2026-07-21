@@ -4,7 +4,7 @@ import os, datetime, torch
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
 from TnT.utils.transforms import DecodeTarget, LateralityInvariance,  Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
-from TnT.trainer.half import Trainer
+from TnT.trainer.n_fold import NFoldTrainer
 from monai.transforms import (
     RandAffined,
     RandAffine,
@@ -22,8 +22,8 @@ from monai.transforms import (
 )
 
 if __name__ == '__main__':
-    PATCH_SIZE_VX = 116 # to avoid oom error on local
-    BATCH_SIZE = 2
+    PATCH_SIZE_VX = 64 # to avoid oom error on local
+    BATCH_SIZE = 4
     EARLY_STOP_PATCHING = False
     
     ## Do splits
@@ -131,23 +131,17 @@ if __name__ == '__main__':
     else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
     
     ## PrEP DL
+    #train.append(val)
     train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
-    val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
     test_dl = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False)
     
     ## setup objs
-    trainer = Trainer()
+    trainer = NFoldTrainer()
     model = TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/5_epochs', *LateralityInvariance.get_n_locs_lats())
     
     ## train or load
-    model = trainer.train(model, train_dl, val_dl, 20, 5)
+    model = trainer.train(model=model, ds=val, train_trans=train_transforms, val_trans=transforms, epochs=1, early_stop=None)
 
     ## QnD test
-    print('#'*20, 'Training ACC', '#'*20)
-    train = TopAneu_TnTs2_DS.load('train.json', transforms)
-    train_dl = DataLoader(train, batch_size=4, shuffle=True)
-    acc = trainer.test(model, train_dl)
-    print('#'*20, 'Validation ACC', '#'*20)
-    acc = trainer.test(model, val_dl)
     print('#'*20, 'Testing ACC', '#'*20)
     acc = trainer.test(model, test_dl)

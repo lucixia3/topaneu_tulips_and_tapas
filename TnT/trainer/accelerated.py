@@ -93,7 +93,7 @@ class Trainer():
             if accel.is_main_process:
                 best_epoch, best_loss = loss_history.min()
                 print(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
-                shutil.copytree(wdir/f'latest_epoch', wdir/f'best_val_loss')
+                shutil.copytree(wdir/f'latest_epoch', wdir/f'best_val_loss', dirs_exist_ok=True)
                 with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
                     f.write(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
             accel.wait_for_everyone()
