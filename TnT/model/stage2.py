@@ -96,7 +96,7 @@ class TnTS2Loss(nn.Module):
         super().__init__()
         self.n_locs = n_locs
         
-    def loss(self, lat, loc, targets):        
+    def forward(self, lat, loc, targets):        
         loc_loss = F.cross_entropy(loc, targets[:, :self.n_locs])
         lat_loss = F.cross_entropy(lat, targets[:, self.n_locs:])
         return loc_loss+lat_loss
