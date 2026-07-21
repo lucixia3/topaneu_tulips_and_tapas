@@ -233,3 +233,5 @@ best_val_loss/
 *test.json
 *val.json
 test_outputs/
+_pretrain/
+_tune/

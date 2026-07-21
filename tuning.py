@@ -1,10 +1,10 @@
 from pprint import pprint
 from pathlib import Path
-import os, datetime
+import os, datetime, torch
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
 from TnT.utils.transforms import DecodeTarget, LateralityInvariance,  Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
-from TnT.trainer.base import Trainer
+from TnT.trainer.half import Trainer
 from monai.transforms import (
     RandAffined,
     RandAffine,
@@ -22,8 +22,9 @@ from monai.transforms import (
 )
 
 if __name__ == '__main__':
-    PATCH_SIZE_VX = 64 # to avoid oom error on local
-    EARLY_STOP_PATCHING = True
+    PATCH_SIZE_VX = 116 # to avoid oom error on local
+    BATCH_SIZE = 2
+    EARLY_STOP_PATCHING = False
     
     ## Do splits
     # ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")
@@ -130,16 +131,16 @@ if __name__ == '__main__':
     else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
     
     ## PrEP DL
-    train_dl = DataLoader(train, batch_size=4, shuffle=True)
-    val_dl = DataLoader(val, batch_size=4, shuffle=True)
-    test_dl = DataLoader(test, batch_size=4, shuffle=False)
+    train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
+    val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
+    test_dl = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False)
     
     ## setup objs
     trainer = Trainer()
-    model = TnTS2.from_pretrained('best_pretrained_model', *LateralityInvariance.get_n_locs_lats())
+    model = TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/5_epochs', *LateralityInvariance.get_n_locs_lats())
     
     ## train or load
-    model = trainer.train(model, train_dl, val_dl, 10, 5)
+    model = trainer.train(model, train_dl, val_dl, 20, 5)
 
     ## QnD test
     print('#'*20, 'Training ACC', '#'*20)
