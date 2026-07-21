@@ -66,30 +66,35 @@ class Trainer():
             
             ## scheduling
             self.sched.step()
-            loss_history.fin_epoch()
-            loss_history.plot_progress(wdir)
             
-            ## saving
-            accel.unwrap_model(model).save(wdir/f'latest_epoch', overwrite=True)
-            
-            ## saving if best
-            if all([l==b for l, b in zip(loss_history.latest(), loss_history.min())]):
-                accel.unwrap_model(model).save(wdir/'best_val_loss', overwrite=True)
-                best_epoch, best_loss = loss_history.min()
-                with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
-                    f.write(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
+            if accel.is_main_process:
+                loss_history.fin_epoch()
+                loss_history.plot_progress(wdir)
                 
+                ## saving
+                accel.unwrap_model(model).save(wdir/f'latest_epoch', overwrite=True)
+                
+                ## saving if best
+                if all([l==b for l, b in zip(loss_history.latest(), loss_history.min())]):
+                    accel.unwrap_model(model).save(wdir/'best_val_loss', overwrite=True)
+                    best_epoch, best_loss = loss_history.min()
+                    with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
+                        f.write(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
+                    
+            accel.wait_for_everyone()
             
             ## early stopping
             if loss_history.has_converged(early_stop):
                 break
         
         else:
-            best_epoch, best_loss = loss_history.min()
-            print(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
-            shutil.copytree(wdir/f'latest_epoch', wdir/f'best_val_loss')
-            with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
-                f.write(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
+            if accel.is_main_process:
+                best_epoch, best_loss = loss_history.min()
+                print(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
+                shutil.copytree(wdir/f'latest_epoch', wdir/f'best_val_loss')
+                with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
+                    f.write(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
+            accel.wait_for_everyone()
                 
         model = accel.unwrap_model(model)      
         model.load(wdir/f'best_val_loss')
