@@ -77,7 +77,7 @@ class TnTS2(nn.Module):
             model.bb.load_state_dict(torch.load(pth/'bb.pth'))
             model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
         return model
-        
+    
     def loss(self, patch, coords, modalities, targets):
         unbatched = isinstance(modalities, str)
         if unbatched:
@@ -87,6 +87,16 @@ class TnTS2(nn.Module):
 
         lat, loc = self.forward(patch, coords, modalities)
         
+        loc_loss = F.cross_entropy(loc, targets[:, :self.n_locs])
+        lat_loss = F.cross_entropy(lat, targets[:, self.n_locs:])
+        return loc_loss+lat_loss
+
+class TnTS2Loss(nn.Module):
+    def __init__(self, n_locs):
+        super().__init__()
+        self.n_locs = n_locs
+        
+    def loss(self, lat, loc, targets):        
         loc_loss = F.cross_entropy(loc, targets[:, :self.n_locs])
         lat_loss = F.cross_entropy(lat, targets[:, self.n_locs:])
         return loc_loss+lat_loss

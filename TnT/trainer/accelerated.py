@@ -7,6 +7,7 @@ from TnT.utils.transforms import DecodeTarget
 import matplotlib.pyplot as plt
 from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
 from accelerate import Accelerator
+from TnT.model.stage2 import TnTS2Loss
 
 class Trainer():
     def __init__(self, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, device='cuda'):
@@ -29,7 +30,7 @@ class Trainer():
             f.write(f"Train Transforms: {train_dl.dataset.transforms}\n")
             f.write(f"Val Transforms: {val_dl.dataset.transforms}\n")
         
-    def train(self, model, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y'))):
+    def train(self, model, loss, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y'))):
         os.makedirs(wdir)
         self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir)
         model.to(self.device)
@@ -48,7 +49,8 @@ class Trainer():
             for batch in tqdm.tqdm(train_dl, desc='Training batches', disable=not accel.is_main_process):
                 self.optim.zero_grad()
                 with accel.autocast():
-                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
+                    loc, lat = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                    l = loss(loc, lat, batch['location'].to(self.device))
                 accel.backward(l)
                 self.optim.step()
                 loss_history.add_train(accel.gather(l).mean())
@@ -58,7 +60,8 @@ class Trainer():
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches', disable=not accel.is_main_process):
                     with accel.autocast():
-                        l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
+                        loc, lat = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                        l = loss(loc, lat, batch['location'].to(self.device))
                     loss_history.add_val(accel.gather(l).mean())
             
             ## scheduling
@@ -88,6 +91,7 @@ class Trainer():
             with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
                 f.write(f'No convergence achieved after {epochs} epochs. Best loss is {best_loss} at epoch {best_epoch}')
                 
+        model = accel.unwrap_model(model)      
         model.load(wdir/f'best_val_loss')
         return model
                 
