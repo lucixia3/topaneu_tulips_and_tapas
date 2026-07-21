@@ -70,11 +70,11 @@ class Trainer():
             loss_history.plot_progress(wdir)
             
             ## saving
-            model.save(wdir/f'latest_epoch', overwrite=True)
+            accel.unwrap_model(model).save(wdir/f'latest_epoch', overwrite=True)
             
             ## saving if best
             if all([l==b for l, b in zip(loss_history.latest(), loss_history.min())]):
-                model.save(wdir/'best_val_loss', overwrite=True)
+                accel.unwrap_model(model).save(wdir/'best_val_loss', overwrite=True)
                 best_epoch, best_loss = loss_history.min()
                 with open(wdir/f'best_val_loss'/'note.txt', 'w') as f:
                     f.write(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
