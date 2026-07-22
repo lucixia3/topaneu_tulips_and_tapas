@@ -1,0 +1,127 @@
+case,component_id,n_voxels,centroid_mm,gt_value,gt_name,pred_baseline_value,pred_baseline_name,pred_model_value,pred_model_name,pred_model_proba,gt_proba,nearest_vessel_name,nearest_vessel_dist_mm,second_vessel_name,second_vessel_dist_mm,along_vessel,laterality_geom,agree_baseline_model,correct_baseline,correct_model,territory_gt,territory_pred,suspect_gt
+topaneu_center2_mr_002,1,383,-28.664;20.114;0.265,46,L-5.1 M1 trunk,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,0.8187,0.008,L-M2,0.0,L-M1,0.0,0.0727,L,True,False,False,5,5,True
+topaneu_center2_mr_042,1,692,-11.742;19.074;15.361,23,L-3.1 ICA infraclinoid C1-C5,27,L-3.3 ICA C6-nonOA,27,L-3.3 ICA C6-nonOA,0.5593,0.0696,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.9339,L,True,False,False,3,3,True
+topaneu_center4_ct_059,2,408,8.743;12.988;-514.132,30,R-3.5 ICA C7-AChA-junction,28,R-3.4 ICA C7-Pcom-junction,28,R-3.4 ICA C7-Pcom-junction,0.7374,0.0495,R-ICA-C6-C7,0.0,R-Pcom,0.0,0.4622,R,True,False,False,3,3,True
+topaneu_center4_ct_107,1,2175,-19.746;11.234;-493.159,48,L-5.2 M1-M2 junction,46,L-5.1 M1 trunk,46,L-5.1 M1 trunk,0.5076,0.4367,L-M1,0.0,L-M2,3.0335,0.5476,L,True,False,False,5,5,True
+topaneu_center4_ct_108,1,2071,-11.314;1.389;-600.674,33,L-3.6 ICA C7-nonBranch,29,L-3.4 ICA C7-Pcom-junction,29,L-3.4 ICA C7-Pcom-junction,0.5904,0.0345,L-Pcom,0.0,L-ICA-C6-C7,0.0,0.3706,L,True,False,False,3,3,True
+topaneu_center4_ct_200,1,4942,-5.114;-24.208;-547.153,4,L-1.2 PICA trunk,2,L-1.1 VA trunk,2,L-1.1 VA trunk,0.6298,0.0,L-VA,0.0,L-PICA,1.1031,0.8155,L,True,False,False,1,1,True
+topaneu_center2_mr_004,1,3028,35.205;40.565;24.136,45,R-5.1 M1 trunk,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.7971,0.1918,R-M2,0.0,R-M1,1.8205,0.435,R,False,False,False,5,5,False
+topaneu_center2_mr_029,1,179,14.511;54.323;3.329,24,R-3.2 ICA C6-OA-junction,26,R-3.3 ICA C6-nonOA,22,R-3.1 ICA infraclinoid C1-C5,0.9706,0.0009,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.0868,R,False,False,False,3,3,False
+topaneu_center2_mr_032,1,1507,37.310;37.414;50.589,46,L-5.1 M1 trunk,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9424,0.039,R-M2,0.0,R-M1,1.2058,0.504,R,False,False,False,5,5,False
+topaneu_center2_mr_034,1,348,1.932;34.388;1.516,22,R-3.1 ICA infraclinoid C1-C5,26,R-3.3 ICA C6-nonOA,24,R-3.2 ICA C6-OA-junction,0.5746,0.3971,R-ICA-C1-C5,0.0,R-ICA-C6-C7,0.0,0.0452,R,False,False,False,3,3,False
+topaneu_center2_mr_044,1,388,19.867;20.487;36.674,34,R-3.7 ICA C7-terminus,45,R-5.1 M1 trunk,32,R-3.6 ICA C7-nonBranch,0.9441,0.0105,R-ICA-C6-C7,0.0,R-M1,0.0,1.0,R,False,False,False,3,3,False
+topaneu_center2_mr_078,1,151,16.162;18.468;11.818,34,R-3.7 ICA C7-terminus,37,R-4.2 A1,26,R-3.3 ICA C6-nonOA,0.346,0.1166,R-A1A2,0.0,R-ICA-C6-C7,0.55,1.0,R,False,False,False,3,3,False
+topaneu_center2_mr_085,2,5493,0.615;13.887;24.595,19,L-2.1 P1P2,17,1.10 BA tip,26,R-3.3 ICA C6-nonOA,0.6566,0.0,BA,0.0,R-P1P2,0.0,0.1545,R,False,False,False,2,3,False
+topaneu_center2_mr_085,3,42588,-17.675;-1.559;-9.887,6,L-1.3 VA-PICA junction,8,1.5 VA-BA junction,4,L-1.2 PICA trunk,0.1694,0.0,BA,0.0,L-VA,0.8104,1.0,L,False,False,False,1,1,False
+topaneu_center2_mr_085,4,1514,-11.798;18.626;10.057,30,R-3.5 ICA C7-AChA-junction,27,L-3.3 ICA C6-nonOA,23,L-3.1 ICA infraclinoid C1-C5,0.3231,0.0588,L-ICA-C6-C7,0.0,L-ICA-C1-C5,1.8761,0.4574,L,False,False,False,3,3,False
+topaneu_center4_ct_002,2,338,-12.003;16.897;-588.437,29,L-3.4 ICA C7-Pcom-junction,27,L-3.3 ICA C6-nonOA,33,L-3.6 ICA C7-nonBranch,0.4106,0.2328,L-ICA-C6-C7,0.0,L-AChA,2.5308,0.5569,L,False,False,False,3,3,False
+topaneu_center4_ct_005,1,1847,-9.835;19.053;-488.864,28,R-3.4 ICA C7-Pcom-junction,27,L-3.3 ICA C6-nonOA,29,L-3.4 ICA C7-Pcom-junction,0.8238,0.8238,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.6269,L,False,False,False,3,3,False
+topaneu_center4_ct_041,1,21397,-3.023;-13.658;-541.309,28,R-3.4 ICA C7-Pcom-junction,22,R-3.1 ICA infraclinoid C1-C5,32,R-3.6 ICA C7-nonBranch,0.341,0.3043,R-ICA-C6-C7,0.0,R-SCA,0.0,0.7684,R,False,False,False,3,3,False
+topaneu_center4_ct_059,1,1581,15.894;12.391;-508.397,32,R-3.6 ICA C7-nonBranch,26,R-3.3 ICA C6-nonOA,28,R-3.4 ICA C7-Pcom-junction,0.4201,0.2117,R-ICA-C6-C7,0.0,R-P1P2,0.6081,1.0,R,False,False,False,3,3,False
+topaneu_center4_ct_060,2,923,-7.215;-9.558;-507.035,17,1.10 BA tip,7,1.4 BA trunk,15,R-1.9 BA-SCA junction,0.8821,0.0,BA,0.0,R-P1P2,0.8956,0.0091,M,False,False,False,1,1,False
+topaneu_center4_ct_072,1,3888,13.724;13.622;-585.353,28,R-3.4 ICA C7-Pcom-junction,26,R-3.3 ICA C6-nonOA,32,R-3.6 ICA C7-nonBranch,0.587,0.362,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.9631,R,False,False,False,3,3,False
+topaneu_center4_ct_074,1,41746,-14.453;-1.190;-555.390,29,L-3.4 ICA C7-Pcom-junction,23,L-3.1 ICA infraclinoid C1-C5,33,L-3.6 ICA C7-nonBranch,0.5048,0.31,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.8814,L,False,False,False,3,3,False
+topaneu_center4_ct_083,3,29719,-18.682;18.708;-590.279,35,L-3.7 ICA C7-terminus,23,L-3.1 ICA infraclinoid C1-C5,29,L-3.4 ICA C7-Pcom-junction,0.9174,0.0002,L-ICA-C1-C5,0.0,L-A1A2,0.0,0.4921,L,False,False,False,3,3,False
+topaneu_center4_ct_083,4,1135,-21.011;9.813;-598.841,31,L-3.5 ICA C7-AChA-junction,27,L-3.3 ICA C6-nonOA,29,L-3.4 ICA C7-Pcom-junction,0.4449,0.2715,L-ICA-C6-C7,0.0,L-ICA-C1-C5,3.1856,1.0,L,False,False,False,3,3,False
+topaneu_center4_ct_093,1,2807,8.769;1.274;-523.408,17,1.10 BA tip,7,1.4 BA trunk,28,R-3.4 ICA C7-Pcom-junction,0.6742,0.0,BA,0.0,R-P1P2,0.43,0.0,M,False,False,False,1,3,False
+topaneu_center4_ct_102,1,397,9.020;59.186;-552.610,43,R-4.5 Distal ACA branches,41,R-4.4 A3,47,R-5.2 M1-M2 junction,0.9546,0.0,R-A3,0.0,L-A3,2.9026,0.7597,R,False,False,False,4,5,False
+topaneu_center4_ct_102,2,3513,1.056;52.130;-530.953,43,R-4.5 Distal ACA branches,42,L-4.4 A3,48,L-5.2 M1-M2 junction,0.9063,0.0,R-A3,0.0,L-A3,0.0,0.0,L,False,False,False,4,5,False
+topaneu_center4_ct_102,3,326,-5.579;69.192;-551.816,44,L-4.5 Distal ACA branches,42,L-4.4 A3,48,L-5.2 M1-M2 junction,0.9554,0.0,L-A3,13.1196,R-A3,13.7758,0.7734,L,False,False,False,4,5,False
+topaneu_center4_ct_103,1,50937,17.189;18.119;-543.313,32,R-3.6 ICA C7-nonBranch,22,R-3.1 ICA infraclinoid C1-C5,28,R-3.4 ICA C7-Pcom-junction,0.4729,0.0773,R-P1P2,0.0,R-ICA-C6-C7,0.0,0.174,R,False,False,False,3,3,False
+topaneu_center4_ct_104,1,983,-7.593;10.379;-542.140,33,L-3.6 ICA C7-nonBranch,31,L-3.5 ICA C7-AChA-junction,29,L-3.4 ICA C7-Pcom-junction,0.9261,0.0036,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.5471,L,False,False,False,3,3,False
+topaneu_center4_ct_115,1,6895,16.106;12.261;-549.692,28,R-3.4 ICA C7-Pcom-junction,26,R-3.3 ICA C6-nonOA,32,R-3.6 ICA C7-nonBranch,0.7317,0.1383,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.8292,R,False,False,False,3,3,False
+topaneu_center4_ct_116,1,553,-3.552;24.503;-511.372,33,L-3.6 ICA C7-nonBranch,27,L-3.3 ICA C6-nonOA,31,L-3.5 ICA C7-AChA-junction,0.9454,0.0044,L-ICA-C6-C7,0.0,L-ICA-C1-C5,2.9667,0.6293,L,False,False,False,3,3,False
+topaneu_center4_ct_122,1,972,44.515;8.748;-463.352,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,45,R-5.1 M1 trunk,0.8213,0.148,R-M2,0.0,R-M1,1.3536,0.6446,R,False,False,False,5,5,False
+topaneu_center4_ct_129,1,2763,5.641;-3.732;-472.038,15,R-1.9 BA-SCA junction,17,1.10 BA tip,28,R-3.4 ICA C7-Pcom-junction,0.5228,0.0126,BA,0.0,R-P1P2,0.0,0.3113,R,False,False,False,1,3,False
+topaneu_center4_ct_193,1,62614,-2.598;13.562;-479.721,32,R-3.6 ICA C7-nonBranch,22,R-3.1 ICA infraclinoid C1-C5,28,R-3.4 ICA C7-Pcom-junction,0.4979,0.075,BA,0.0,R-ICA-C1-C5,0.0,0.8371,R,False,False,False,3,3,False
+topaneu_center2_mr_020,1,10016,4.423;22.422;12.797,26,R-3.3 ICA C6-nonOA,26,R-3.3 ICA C6-nonOA,28,R-3.4 ICA C7-Pcom-junction,0.6718,0.0239,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.4829,R,False,True,False,3,3,False
+topaneu_center2_mr_074,1,200,15.165;18.281;8.379,22,R-3.1 ICA infraclinoid C1-C5,22,R-3.1 ICA infraclinoid C1-C5,30,R-3.5 ICA C7-AChA-junction,0.3297,0.2967,R-ICA-C1-C5,0.0,R-ICA-C6-C7,3.4186,0.1144,R,False,True,False,3,3,False
+topaneu_center2_mr_077,1,371,-10.247;21.123;-6.632,29,L-3.4 ICA C7-Pcom-junction,29,L-3.4 ICA C7-Pcom-junction,31,L-3.5 ICA C7-AChA-junction,0.6025,0.1216,L-ICA-C6-C7,0.0,L-Pcom,0.0,0.489,L,False,True,False,3,3,False
+topaneu_center2_mr_077,2,131,-14.608;20.862;-4.318,31,L-3.5 ICA C7-AChA-junction,31,L-3.5 ICA C7-AChA-junction,23,L-3.1 ICA infraclinoid C1-C5,0.4457,0.4252,L-AChA,0.0,L-ICA-C6-C7,0.0,0.3158,L,False,True,False,3,3,False
+topaneu_center2_mr_083,1,625,2.131;23.385;24.127,26,R-3.3 ICA C6-nonOA,26,R-3.3 ICA C6-nonOA,22,R-3.1 ICA infraclinoid C1-C5,0.401,0.1939,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.1504,R,False,True,False,3,3,False
+topaneu_center2_mr_086,1,86,5.768;30.729;-12.102,26,R-3.3 ICA C6-nonOA,26,R-3.3 ICA C6-nonOA,22,R-3.1 ICA infraclinoid C1-C5,0.7433,0.0985,R-ICA-C6-C7,0.0,R-ICA-C1-C5,3.1169,0.1734,R,False,True,False,3,3,False
+topaneu_center4_ct_002,1,304,-8.943;22.783;-594.433,27,L-3.3 ICA C6-nonOA,27,L-3.3 ICA C6-nonOA,23,L-3.1 ICA infraclinoid C1-C5,0.7776,0.0213,L-ICA-C6-C7,0.0,L-ICA-C1-C5,0.7873,1.0,L,False,True,False,3,3,False
+topaneu_center4_ct_045,1,1695,-8.724;14.976;-456.577,27,L-3.3 ICA C6-nonOA,27,L-3.3 ICA C6-nonOA,29,L-3.4 ICA C7-Pcom-junction,0.3412,0.2135,L-ICA-C6-C7,0.0,L-ICA-C1-C5,1.9915,0.9268,L,False,True,False,3,3,False
+topaneu_center4_ct_055,1,4062,16.285;-19.179;60.571,5,R-1.3 VA-PICA junction,5,R-1.3 VA-PICA junction,1,R-1.1 VA trunk,0.8735,0.0,R-PICA,0.0,R-VA,0.0,0.251,R,False,True,False,1,1,False
+topaneu_center4_ct_083,1,288,7.337;16.607;-594.304,30,R-3.5 ICA C7-AChA-junction,30,R-3.5 ICA C7-AChA-junction,26,R-3.3 ICA C6-nonOA,0.3484,0.0104,R-ICA-C6-C7,0.0,R-AChA,0.0,0.7675,R,False,True,False,3,3,False
+topaneu_center4_ct_083,2,398,-8.252;0.181;-593.273,16,L-1.9 BA-SCA junction,16,L-1.9 BA-SCA junction,17,1.10 BA tip,0.6213,0.0155,BA,0.0,L-SCA,0.0,0.0612,L,False,True,False,1,1,False
+topaneu_center4_ct_104,2,820,-12.325;11.199;-547.420,23,L-3.1 ICA infraclinoid C1-C5,23,L-3.1 ICA infraclinoid C1-C5,25,L-3.2 ICA C6-OA-junction,0.3055,0.1871,L-ICA-C1-C5,0.0,L-ICA-C6-C7,4.3092,0.9357,L,False,True,False,3,3,False
+topaneu_center4_ct_127,1,6872,16.369;-24.790;-501.271,1,R-1.1 VA trunk,1,R-1.1 VA trunk,5,R-1.3 VA-PICA junction,0.8472,0.0173,R-VA,0.0,L-VA,3.2453,0.2683,R,False,True,False,1,1,False
+topaneu_center4_ct_140,1,43002,-1.284;15.969;-555.751,23,L-3.1 ICA infraclinoid C1-C5,23,L-3.1 ICA infraclinoid C1-C5,29,L-3.4 ICA C7-Pcom-junction,0.8963,0.0002,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.9543,L,False,True,False,3,3,False
+topaneu_center2_mr_007,1,256,32.010;43.113;44.085,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9255,0.9255,R-M2,0.0,R-M1,1.4168,0.935,R,False,False,True,5,5,False
+topaneu_center2_mr_010,1,7846,7.546;35.076;68.000,26,R-3.3 ICA C6-nonOA,22,R-3.1 ICA infraclinoid C1-C5,26,R-3.3 ICA C6-nonOA,0.4587,0.4587,R-ICA-C6-C7,0.0,R-M1,0.0,0.0305,R,False,False,True,3,3,False
+topaneu_center2_mr_016,1,461,-12.327;25.059;-5.071,25,L-3.2 ICA C6-OA-junction,23,L-3.1 ICA infraclinoid C1-C5,25,L-3.2 ICA C6-OA-junction,0.7585,0.7585,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,1.0,L,False,False,True,3,3,False
+topaneu_center2_mr_025,1,847,31.019;21.428;8.100,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9048,0.9048,R-M2,0.0,R-M1,0.8634,0.4461,R,False,False,True,5,5,False
+topaneu_center2_mr_028,1,726,2.087;32.426;26.405,22,R-3.1 ICA infraclinoid C1-C5,26,R-3.3 ICA C6-nonOA,22,R-3.1 ICA infraclinoid C1-C5,0.985,0.985,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.0,R,False,False,True,3,3,False
+topaneu_center2_mr_038,1,1142,-35.717;26.395;17.206,48,L-5.2 M1-M2 junction,50,L-5.3 Distal-M2M3,48,L-5.2 M1-M2 junction,0.6812,0.6812,L-M2,0.0,L-M1,0.5952,0.8729,L,False,False,True,5,5,False
+topaneu_center2_mr_047,1,1486,41.051;33.144;-4.103,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9179,0.9179,R-M2,0.0,R-M1,1.0731,0.5312,R,False,False,True,5,5,False
+topaneu_center2_mr_048,1,146,32.096;25.513;12.172,47,R-5.2 M1-M2 junction,45,R-5.1 M1 trunk,47,R-5.2 M1-M2 junction,0.8215,0.8215,R-M1,0.0,R-M2,1.331,0.8928,R,False,False,True,5,5,False
+topaneu_center2_mr_054,1,76,-5.750;29.292;4.304,36,4.1 Acom complex,38,L-4.2 A1,36,4.1 Acom complex,0.7901,0.7901,L-A1A2,0.0,Acom,0.2976,0.4493,L,False,False,True,4,4,False
+topaneu_center2_mr_055,1,381,3.671;30.304;-2.924,22,R-3.1 ICA infraclinoid C1-C5,26,R-3.3 ICA C6-nonOA,22,R-3.1 ICA infraclinoid C1-C5,0.974,0.974,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.2539,R,False,False,True,3,3,False
+topaneu_center2_mr_056,1,126,31.541;32.905;16.621,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9815,0.9815,R-M2,0.0,R-M1,1.2271,0.8304,R,False,False,True,5,5,False
+topaneu_center2_mr_057,1,909,-13.715;16.754;2.015,25,L-3.2 ICA C6-OA-junction,27,L-3.3 ICA C6-nonOA,25,L-3.2 ICA C6-OA-junction,0.4741,0.4741,L-ICA-C6-C7,0.0,L-ICA-C1-C5,0.6254,1.0,L,False,False,True,3,3,False
+topaneu_center2_mr_069,1,455,-6.247;20.792;6.069,25,L-3.2 ICA C6-OA-junction,27,L-3.3 ICA C6-nonOA,25,L-3.2 ICA C6-OA-junction,0.3011,0.3011,L-ICA-C6-C7,0.0,L-ICA-C1-C5,0.5,1.0,L,False,False,True,3,3,False
+topaneu_center2_mr_074,2,395,12.860;17.809;13.424,28,R-3.4 ICA C7-Pcom-junction,26,R-3.3 ICA C6-nonOA,28,R-3.4 ICA C7-Pcom-junction,0.4503,0.4503,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.7463,R,False,False,True,3,3,False
+topaneu_center2_mr_074,4,29,-36.053;26.502;20.058,48,L-5.2 M1-M2 junction,50,L-5.3 Distal-M2M3,48,L-5.2 M1-M2 junction,0.926,0.926,L-M2,0.0,L-M1,3.0299,0.6996,L,False,False,True,5,5,False
+topaneu_center2_mr_079,1,1302,36.996;17.076;7.105,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9332,0.9332,R-M2,0.0,R-M1,1.8505,0.7416,R,False,False,True,5,5,False
+topaneu_center2_mr_080,1,11691,-6.843;13.081;21.021,29,L-3.4 ICA C7-Pcom-junction,27,L-3.3 ICA C6-nonOA,29,L-3.4 ICA C7-Pcom-junction,0.6996,0.6996,L-P1P2,0.0,L-A1A2,0.0,0.8778,L,False,False,True,3,3,False
+topaneu_center2_mr_083,2,414,-9.967;30.480;20.221,23,L-3.1 ICA infraclinoid C1-C5,27,L-3.3 ICA C6-nonOA,23,L-3.1 ICA infraclinoid C1-C5,0.9139,0.9139,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.8153,L,False,False,True,3,3,False
+topaneu_center2_mr_083,3,1363,-10.791;32.513;26.748,25,L-3.2 ICA C6-OA-junction,27,L-3.3 ICA C6-nonOA,25,L-3.2 ICA C6-OA-junction,0.4779,0.4779,L-ICA-C6-C7,0.0,L-ICA-C1-C5,1.4477,0.9877,L,False,False,True,3,3,False
+topaneu_center2_mr_085,1,2380,37.036;29.586;16.455,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9247,0.9247,R-M2,0.0,R-M1,0.8634,0.4293,R,False,False,True,5,5,False
+topaneu_center2_mr_086,2,156,3.185;29.688;-15.668,22,R-3.1 ICA infraclinoid C1-C5,26,R-3.3 ICA C6-nonOA,22,R-3.1 ICA infraclinoid C1-C5,0.778,0.778,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.1031,R,False,False,True,3,3,False
+topaneu_center4_ct_002,3,1221,-31.723;23.684;-593.558,48,L-5.2 M1-M2 junction,50,L-5.3 Distal-M2M3,48,L-5.2 M1-M2 junction,0.816,0.816,L-M2,0.0,L-M1,0.43,0.8066,L,False,False,True,5,5,False
+topaneu_center4_ct_008,1,442,24.270;19.949;-559.809,47,R-5.2 M1-M2 junction,45,R-5.1 M1 trunk,47,R-5.2 M1-M2 junction,0.8095,0.8095,R-M1,0.0,R-M2,6.4381,0.3228,R,False,False,True,5,5,False
+topaneu_center4_ct_009,1,748,-13.594;40.494;-502.116,48,L-5.2 M1-M2 junction,46,L-5.1 M1 trunk,48,L-5.2 M1-M2 junction,0.4904,0.4904,L-M1,0.0,L-M2,5.2429,0.6247,L,False,False,True,5,5,False
+topaneu_center4_ct_019,1,2282,-0.552;12.555;-570.502,29,L-3.4 ICA C7-Pcom-junction,23,L-3.1 ICA infraclinoid C1-C5,29,L-3.4 ICA C7-Pcom-junction,0.6282,0.6282,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.4695,L,False,False,True,3,3,False
+topaneu_center4_ct_023,1,144,13.762;7.183;-489.515,32,R-3.6 ICA C7-nonBranch,26,R-3.3 ICA C6-nonOA,32,R-3.6 ICA C7-nonBranch,0.2836,0.2836,R-ICA-C6-C7,0.0,R-Pcom,4.4873,0.6991,R,False,False,True,3,3,False
+topaneu_center4_ct_034,1,2058,20.320;20.021;-468.848,28,R-3.4 ICA C7-Pcom-junction,26,R-3.3 ICA C6-nonOA,28,R-3.4 ICA C7-Pcom-junction,0.9347,0.9347,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.8839,R,False,False,True,3,3,False
+topaneu_center4_ct_042,1,229,-41.798;31.486;-522.219,48,L-5.2 M1-M2 junction,50,L-5.3 Distal-M2M3,48,L-5.2 M1-M2 junction,0.9812,0.9812,L-M2,0.0,L-M1,5.3592,0.7243,L,False,False,True,5,5,False
+topaneu_center4_ct_062,2,1459,-45.930;23.803;-526.531,48,L-5.2 M1-M2 junction,50,L-5.3 Distal-M2M3,48,L-5.2 M1-M2 junction,0.995,0.995,L-M2,0.0,L-M1,0.78,0.7574,L,False,False,True,5,5,False
+topaneu_center4_ct_063,1,64343,-4.868;-2.625;-459.396,29,L-3.4 ICA C7-Pcom-junction,23,L-3.1 ICA infraclinoid C1-C5,29,L-3.4 ICA C7-Pcom-junction,0.7452,0.7452,L-ICA-C1-C5,0.0,L-Pcom,0.0,0.4269,L,False,False,True,3,3,False
+topaneu_center4_ct_065,1,895,32.533;17.583;-526.701,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9568,0.9568,R-M2,0.0,R-M1,0.78,0.8763,R,False,False,True,5,5,False
+topaneu_center4_ct_067,1,1655,-3.995;16.928;-540.783,36,4.1 Acom complex,38,L-4.2 A1,36,4.1 Acom complex,0.475,0.475,L-ICA-C6-C7,0.0,L-A1A2,0.0,0.7529,L,False,False,True,4,4,False
+topaneu_center4_ct_069,2,3378,-28.194;40.931;-592.867,48,L-5.2 M1-M2 junction,50,L-5.3 Distal-M2M3,48,L-5.2 M1-M2 junction,0.9707,0.9707,L-M2,0.0,L-M1,1.0818,0.7309,L,False,False,True,5,5,False
+topaneu_center4_ct_071,1,626,24.041;20.249;-560.006,47,R-5.2 M1-M2 junction,45,R-5.1 M1 trunk,47,R-5.2 M1-M2 junction,0.8913,0.8913,R-M1,0.0,R-M2,5.8551,0.3228,R,False,False,True,5,5,False
+topaneu_center4_ct_073,2,626,-43.138;16.270;-603.635,48,L-5.2 M1-M2 junction,50,L-5.3 Distal-M2M3,48,L-5.2 M1-M2 junction,0.9454,0.9454,L-M2,0.0,L-M1,3.4587,0.6681,L,False,False,True,5,5,False
+topaneu_center4_ct_097,1,8128,13.258;19.114;-531.187,28,R-3.4 ICA C7-Pcom-junction,22,R-3.1 ICA infraclinoid C1-C5,28,R-3.4 ICA C7-Pcom-junction,0.8651,0.8651,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.7438,R,False,False,True,3,3,False
+topaneu_center4_ct_101,1,498,44.627;36.741;-558.744,47,R-5.2 M1-M2 junction,49,R-5.3 Distal-M2M3,47,R-5.2 M1-M2 junction,0.9294,0.9294,R-M2,0.0,R-M1,2.1915,0.4071,R,False,False,True,5,5,False
+topaneu_center4_ct_101,2,3664,-10.968;12.909;-563.186,29,L-3.4 ICA C7-Pcom-junction,23,L-3.1 ICA infraclinoid C1-C5,29,L-3.4 ICA C7-Pcom-junction,0.6744,0.6744,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.7988,L,False,False,True,3,3,False
+topaneu_center4_ct_105,1,461,-27.503;25.329;-631.358,48,L-5.2 M1-M2 junction,50,L-5.3 Distal-M2M3,48,L-5.2 M1-M2 junction,0.9817,0.9817,L-M2,0.0,L-M1,2.0599,0.7417,L,False,False,True,5,5,False
+topaneu_center2_mr_011,1,411,0.928;12.871;33.830,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9546,0.9546,Acom,0.0,R-A1A2,0.0,0.7567,R,True,True,True,4,4,False
+topaneu_center2_mr_012,1,299,31.906;13.700;-23.552,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,0.4354,0.4354,R-M1,0.0,R-M2,6.3466,0.5855,R,True,True,True,5,5,False
+topaneu_center2_mr_012,2,13550,8.369;20.569;-26.033,22,R-3.1 ICA infraclinoid C1-C5,22,R-3.1 ICA infraclinoid C1-C5,22,R-3.1 ICA infraclinoid C1-C5,0.9188,0.9188,R-ICA-C1-C5,0.0,R-ICA-C6-C7,2.0547,0.1314,R,True,True,True,3,3,False
+topaneu_center2_mr_017,1,511,-4.796;32.957;29.725,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9938,0.9938,Acom,0.0,R-A1A2,0.0,1.0,R,True,True,True,4,4,False
+topaneu_center2_mr_018,1,70,-0.107;31.127;30.204,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9663,0.9663,Acom,0.0,R-A1A2,0.0,1.0,R,True,True,True,4,4,False
+topaneu_center2_mr_019,1,350,6.715;33.767;10.118,22,R-3.1 ICA infraclinoid C1-C5,22,R-3.1 ICA infraclinoid C1-C5,22,R-3.1 ICA infraclinoid C1-C5,0.8342,0.8342,R-ICA-C6-C7,0.0,R-ICA-C1-C5,0.0,0.0,R,True,True,True,3,3,False
+topaneu_center2_mr_031,1,344,21.240;17.319;4.092,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,0.5692,0.5692,R-M1,0.0,R-ICA-C6-C7,6.3039,0.6788,R,True,True,True,5,5,False
+topaneu_center2_mr_035,1,776,27.471;29.394;3.975,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,0.8135,0.8135,R-M1,0.0,R-M2,4.0224,0.4259,R,True,True,True,5,5,False
+topaneu_center2_mr_049,1,744,25.362;36.036;7.928,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,0.9099,0.9099,R-M1,0.0,R-M2,0.0,0.767,R,True,True,True,5,5,False
+topaneu_center2_mr_050,1,448,21.592;28.489;23.251,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,0.7412,0.7412,R-M1,0.0,R-M2,0.0,0.9472,R,True,True,True,5,5,False
+topaneu_center2_mr_051,1,1928,-37.778;28.539;44.999,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,0.9886,0.9886,L-M2,0.0,L-M1,0.0,0.3207,L,True,True,True,5,5,False
+topaneu_center2_mr_058,1,545,1.816;18.733;-9.649,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9733,0.9733,Acom,0.0,R-A1A2,0.0,0.2496,R,True,True,True,4,4,False
+topaneu_center2_mr_074,3,152,-10.980;15.345;13.973,29,L-3.4 ICA C7-Pcom-junction,29,L-3.4 ICA C7-Pcom-junction,29,L-3.4 ICA C7-Pcom-junction,0.5134,0.5134,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.4987,L,True,True,True,3,3,False
+topaneu_center2_mr_078,2,1509,-17.697;30.662;7.242,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,0.8707,0.8707,L-M2,0.0,L-M1,0.0,0.2285,L,True,True,True,5,5,False
+topaneu_center2_mr_079,2,204,38.362;13.156;1.928,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,0.9818,0.9818,R-M1,0.0,R-M2,0.0,0.8476,R,True,True,True,5,5,False
+topaneu_center2_mr_080,2,2847,-30.028;27.083;25.423,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,0.4149,0.4149,L-M2,0.0,L-M1,0.0,0.0,L,True,True,True,5,5,False
+topaneu_center4_ct_012,1,380,2.398;17.901;-523.932,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9682,0.9682,Acom,0.0,R-A1A2,0.0,1.0,R,True,True,True,4,4,False
+topaneu_center4_ct_020,1,1776,-11.353;27.722;-522.596,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9896,0.9896,Acom,0.0,R-A1A2,0.0,0.1211,L,True,True,True,4,4,False
+topaneu_center4_ct_030,1,407,8.000;23.798;-489.339,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9492,0.9492,Acom,0.0,L-A1A2,0.0,1.0,L,True,True,True,4,4,False
+topaneu_center4_ct_037,1,904,6.701;16.830;-485.217,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9925,0.9925,L-A1A2,0.0,Acom,0.0,0.0,L,True,True,True,4,4,False
+topaneu_center4_ct_047,1,2150,39.981;24.589;3.415,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,0.9691,0.9691,R-M1,0.0,R-M2,0.0,0.8008,R,True,True,True,5,5,False
+topaneu_center4_ct_048,1,1242,-38.651;26.318;-516.774,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,48,L-5.2 M1-M2 junction,0.9769,0.9769,L-M2,0.0,L-M1,0.0,0.5324,L,True,True,True,5,5,False
+topaneu_center4_ct_051,1,1798,2.004;15.066;-525.186,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9825,0.9825,Acom,0.0,R-A1A2,0.0,1.0,R,True,True,True,4,4,False
+topaneu_center4_ct_057,1,1360,-16.550;23.159;-534.547,46,L-5.1 M1 trunk,46,L-5.1 M1 trunk,46,L-5.1 M1 trunk,0.2596,0.2596,L-M1,0.0,L-ICA-C6-C7,2.8976,0.5767,L,True,True,True,5,5,False
+topaneu_center4_ct_060,1,2828,-4.551;13.686;-519.928,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.6914,0.6914,Acom,0.0,R-A1A2,0.0,0.709,R,True,True,True,4,4,False
+topaneu_center4_ct_062,1,1486,24.896;17.766;-537.575,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,0.9688,0.9688,R-M1,0.0,R-M2,1.6382,0.6419,R,True,True,True,5,5,False
+topaneu_center4_ct_064,1,855,2.996;17.980;-446.838,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9826,0.9826,R-A1A2,0.0,L-A1A2,0.0,0.674,R,True,True,True,4,4,False
+topaneu_center4_ct_066,1,1337,31.842;34.834;-535.717,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,0.5764,0.5764,R-M1,0.0,R-M2,1.8381,0.6778,R,True,True,True,5,5,False
+topaneu_center4_ct_069,1,1354,33.181;38.585;-592.110,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,0.8432,0.8432,R-M1,0.0,R-M2,0.0,0.9659,R,True,True,True,5,5,False
+topaneu_center4_ct_070,1,885,4.590;34.791;-558.728,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.4306,0.4306,Acom,0.0,R-A1A2,0.0,0.7861,R,True,True,True,4,4,False
+topaneu_center4_ct_073,1,1466,18.091;20.185;-590.703,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,45,R-5.1 M1 trunk,0.9565,0.9565,R-M1,0.0,R-M2,7.076,0.4556,R,True,True,True,5,5,False
+topaneu_center4_ct_087,1,2234,5.480;23.827;-473.961,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.8989,0.8989,R-A1A2,0.0,L-A1A2,0.0,0.7591,L,True,True,True,4,4,False
+topaneu_center4_ct_094,1,2637,13.240;24.274;-563.850,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,47,R-5.2 M1-M2 junction,0.8949,0.8949,R-M1,0.0,R-M2,0.0,0.8628,R,True,True,True,5,5,False
+topaneu_center4_ct_095,1,1798,-6.963;32.705;-537.977,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.972,0.972,R-A1A2,0.0,L-A1A2,0.0,0.8845,L,True,True,True,4,4,False
+topaneu_center4_ct_106,1,1105,-2.631;17.205;-537.728,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9882,0.9882,Acom,0.0,R-A1A2,0.0,0.3006,L,True,True,True,4,4,False
+topaneu_center4_ct_119,1,1749,17.774;24.040;-524.797,36,4.1 Acom complex,36,4.1 Acom complex,36,4.1 Acom complex,0.9897,0.9897,Acom,0.0,R-A1A2,0.0,0.0,R,True,True,True,4,4,False
+topaneu_center4_ct_134,1,8900,1.830;28.845;-479.893,29,L-3.4 ICA C7-Pcom-junction,29,L-3.4 ICA C7-Pcom-junction,29,L-3.4 ICA C7-Pcom-junction,0.868,0.868,L-ICA-C1-C5,0.0,L-ICA-C6-C7,0.0,0.5932,L,True,True,True,3,3,False
+topaneu_center4_ct_201,1,1473,8.425;0.322;-551.636,1,R-1.1 VA trunk,1,R-1.1 VA trunk,1,R-1.1 VA trunk,0.3291,0.3291,R-VA,0.0,BA,0.5559,0.0273,R,True,True,True,1,1,False
