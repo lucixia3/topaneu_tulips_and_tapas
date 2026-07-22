@@ -227,7 +227,7 @@ pyrightconfig.json
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
-TnTS2_training*/
+TnTS2_*/
 best_val_loss/
 *train.json
 *test.json

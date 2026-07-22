@@ -31,7 +31,7 @@ class Ensemble(nn.Module):
             lat, loc = m(patch, coords, modalities)
             lats.append(lat)
             locs.append(loc)
-        return torch.mean(torch.stack(lats, dim=0), dim=0), torch.mean(torch.stack(locs, dim=0), dim=0)
+        return lats, locs
     
     def classify(self, patch, coords, modalities):
         unbatched = isinstance(modalities, str)
@@ -50,8 +50,8 @@ class Ensemble(nn.Module):
         for b_item in range(lat_sigmoid.shape[0]):
             loc = torch.argmax(loc_sigmoid[b_item, :]).item()
             lat = torch.argmax(lat_sigmoid[b_item, :]).item()
-            assigned_lat[b_item, loc]=1
-            assigned_loc[b_item, lat]=1
+            assigned_lat[b_item, lat]=1
+            assigned_loc[b_item, loc]=1
         
         return assigned_lat, assigned_loc
     

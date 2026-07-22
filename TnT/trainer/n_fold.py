@@ -5,7 +5,7 @@ from pathlib import Path
 import os, tqdm, torch, numpy as np, shutil, datetime, json, copy
 from TnT.utils.transforms import DecodeTarget
 import matplotlib.pyplot as plt
-from TnT.trainer.base import Trainer
+from TnT.trainer.base import BasicTrainer
 from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, DataLoader, TnTs2_collate
 from TnT.model.ensemble import Ensemble
@@ -16,7 +16,7 @@ class NFoldTrainer():
         self.optim = optim
         self.sched = sched
         self.device = device
-        self.trainer = Trainer
+        self.trainer = BasicTrainer
         self.n = n_folds
         self.bs = batch_size
         
@@ -65,8 +65,10 @@ class NFoldTrainer():
         for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
             ids += batch['id']
             gts.append(batch['location'])
-            pred = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality']).detach().to('cpu')
-            preds.append(pred)
+            pred_lat, pred_loc = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+            pred_lat=pred_lat.detach().to('cpu')
+            pred_loc=pred_loc.detach().to('cpu')
+            preds.append(torch.concat([pred_loc, pred_lat], dim=-1))
         
         preds = torch.concat(preds, dim=0).to(torch.uint8)  
         preds_dec = decoder(preds)

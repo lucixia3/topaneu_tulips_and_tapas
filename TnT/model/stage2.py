@@ -46,8 +46,8 @@ class TnTS2(nn.Module):
         for b_item in range(lat_sigmoid.shape[0]):
             loc = torch.argmax(loc_sigmoid[b_item, :]).item()
             lat = torch.argmax(lat_sigmoid[b_item, :]).item()
-            assigned_lat[b_item, loc]=1
-            assigned_loc[b_item, lat]=1
+            assigned_lat[b_item, lat]=1
+            assigned_loc[b_item, loc]=1
         
         return assigned_lat, assigned_loc
     

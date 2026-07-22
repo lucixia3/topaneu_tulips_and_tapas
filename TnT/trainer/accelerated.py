@@ -9,7 +9,7 @@ from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
 from accelerate import Accelerator
 from TnT.model.stage2 import TnTS2Loss
 
-class Trainer():
+class AccelTrainer():
     def __init__(self, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, device='cuda'):
         self.lr = lr
         self.optim = optim
@@ -113,8 +113,10 @@ class Trainer():
         for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
             ids += batch['id']
             gts.append(batch['location'])
-            pred = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality']).detach().to('cpu')
-            preds.append(pred)
+            pred_lat, pred_loc = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+            pred_lat=pred_lat.detach().to('cpu')
+            pred_loc=pred_loc.detach().to('cpu')
+            preds.append(torch.concat([pred_loc, pred_lat], dim=-1))
         
         preds = torch.concat(preds, dim=0).to(torch.uint8)  
         preds_dec = decoder(preds)
