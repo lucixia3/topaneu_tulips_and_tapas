@@ -70,7 +70,7 @@ class TopAneu_TnTs2_DS(Dataset):
         smp = self.aneus[idx]
         img_smp = self.image_ds[smp['idx']]
         
-        multichannel_img = np.stack( # 4D array: [C, D, H, W]
+        multichannel_img = np.stack( # 4D array: [C, H, D, W]
             [
                 self._center_crop(img_smp['image'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
                 self._center_crop(img_smp['location_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
@@ -343,7 +343,7 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
         smp = self.aneus[idx]
         img_smp = self.image_ds[smp['idx']]
         
-        multichannel_img = np.stack( # 4D array: [C, D, H, W]
+        multichannel_img = np.stack( # 4D array: [C, H, D, W]
             [
                 self._center_crop(img_smp['image'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
                 self._center_crop(img_smp['location_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm),

@@ -1,10 +1,82 @@
-import numpy as np, json, tqdm, torch, random
+import numpy as np, json, tqdm, torch, random, copy
 from pprint import pprint
 import statistics
 from torchvision.transforms import Normalize, Compose, InterpolationMode
 from monai.transforms import Resize, Spacing
+from monai.transforms import (
+    RandAffined,
+    RandAffine,
+    RandFlip,
+    RandRotate90,
+    RandSpatialCrop,
+    RandGaussianNoise,
+    RandAdjustContrast,
+    RandGaussianSmooth,
+    RandScaleIntensity,
+    RandShiftIntensity,
+    RandBiasField,
+    RandHistogramShift,
+    NormalizeIntensity,
+)
 from monai.data import MetaTensor
 from scipy.ndimage import binary_dilation, binary_erosion, grey_dilation, grey_erosion, generate_binary_structure
+
+def get_train_test_transforms(patch_size_vx):
+    test_transforms = Compose([
+        MaybeToTensor(),
+        MaybeResize(size=patch_size_vx),
+        BinarizeAneuChannel(),
+        BinarizeVesselChannel(),
+        AdaNorm.make(),
+    ])
+    
+    train_transforms = Compose([
+        MaybeToTensor(),
+        MaybeResize(patch_size_vx),
+        BinarizeAneuChannel(),
+        BinarizeVesselChannel(),
+        
+        # ---- Spatial stuff ----
+        RandomFlipLaterality(0.5),
+        
+        # ---- Custom stuff ----
+        RandomMask(0.2),
+        RandomNonCorrespondingMask(0.2),
+        RandomNonCorrespondingMorph(0.2),
+
+        # ---- Intensity-only transforms: image channel exclusively ----
+        ImageTransformWrapper(
+            RandGaussianNoise(prob=0.2, mean=0.0, std=0.05),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandGaussianSmooth(prob=0.15, sigma_x=(0.5, 1.0), sigma_y=(0.5, 1.0), sigma_z=(0.5, 1.0)),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandAdjustContrast(prob=0.2, gamma=(0.7, 1.5)),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandScaleIntensity(prob=0.2, factors=0.1),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandShiftIntensity(prob=0.2, offsets=0.1),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandBiasField(prob=0.1, coeff_range=(0.0, 0.3)),
+            apply_to=['image']
+        ),
+        ImageTransformWrapper(
+            RandHistogramShift(prob=0.1, num_control_points=(3, 5)),
+            apply_to=['image']
+        ),
+        AdaNorm.make(),
+    ])
+    
+    return train_transforms, test_transforms
 
 class BinarizeVessels():
     def __call__(self, dct):
@@ -713,3 +785,31 @@ class DecodeTargetForVessels():
         else: loc_lit = loc_20_lit
         
         return loc_lit, lat_lit, self.lit_loc_lookup[loc_lit]
+
+class RandomFlipLaterality():
+    def __init__(self, prob):
+        self.prob = prob
+        # 4D array: [C, H, D, W]
+        self.channels_laterality_dimension = 3
+        self.laterality_dimension = 2
+        
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+    
+    def _flip_laterality(self, obj):
+        tmp = obj[-2].clone() if torch.is_tensor(obj) else obj[-2]
+        obj[-2] = obj[-1]
+        obj[-1] = tmp
+        return obj
+    
+    def __call__(self, dct):
+        if self.execute: 
+            if dct['image'].dim() == 3:
+                dct['image'] = torch.flip(dct['image'], dims=[self.aterality_dimension])
+                dct['location'] = self._flip_laterality(dct['location'])
+            else:
+                dct['image'] = torch.flip(dct['image'], dims=[self.channels_laterality_dimension])
+                dct['location'] = self._flip_laterality(dct['location'])
+            return dct
+        else: return dct

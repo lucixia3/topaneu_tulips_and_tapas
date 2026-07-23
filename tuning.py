@@ -2,7 +2,7 @@ from pprint import pprint
 from pathlib import Path
 import os, datetime, torch
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
-from TnT.utils.transforms import DecodeTarget, LateralityInvariance,  Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
+from TnT.utils.transforms import get_train_test_transforms, DecodeTarget, LateralityInvariance,  Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
 from TnT.trainer.n_fold import NFoldTrainer
 from TnT.trainer.base import BasicTrainer
@@ -35,82 +35,7 @@ if __name__ == '__main__':
     #     fold.save(id)
     
     ## Prep trans
-    transforms = Compose([
-        MaybeToTensor(),
-        Resample.make(),
-        MaybeResize(size=PATCH_SIZE_VX),
-        BinarizeAneuChannel(),
-        BinarizeVesselChannel(),
-        AdaNorm.make(),
-    ])
-    
-    train_transforms = Compose([
-        MaybeToTensor(),
-        RandomResample(0.8),
-        MaybeResize(PATCH_SIZE_VX),
-        BinarizeAneuChannel(),
-        BinarizeVesselChannel(),
-        
-        # ---- Custom stuff ----
-        RandomMask(0.2),
-        RandomNonCorrespondingMask(0.2),
-        RandomNonCorrespondingMorph(0.2),
-        
-        
-        # ---- Spatial transforms: must apply identically to image + all masks ----
-        ImageTransformWrapper(
-            RandFlip(prob=0.5, spatial_axis=0),
-            apply_to='all'
-        ),
-        ImageTransformWrapper(
-            RandFlip(prob=0.5, spatial_axis=1),
-            apply_to='all'
-        ),
-        ImageTransformWrapper(
-            RandRotate90(prob=0.5, spatial_axes=(0, 1)),
-            apply_to='all'
-        ),
-        ImageTransformWrapper(
-            RandAffine(
-                prob=0.3,
-                rotate_range=(0.1, 0.1, 0.1),
-                scale_range=(0.1, 0.1, 0.1),
-                padding_mode='border',
-            ),
-            apply_to='all'
-        ),
-
-        # ---- Intensity-only transforms: image channel exclusively ----
-        ImageTransformWrapper(
-            RandGaussianNoise(prob=0.2, mean=0.0, std=0.05),
-            apply_to=['image']
-        ),
-        ImageTransformWrapper(
-            RandGaussianSmooth(prob=0.15, sigma_x=(0.5, 1.0), sigma_y=(0.5, 1.0), sigma_z=(0.5, 1.0)),
-            apply_to=['image']
-        ),
-        ImageTransformWrapper(
-            RandAdjustContrast(prob=0.2, gamma=(0.7, 1.5)),
-            apply_to=['image']
-        ),
-        ImageTransformWrapper(
-            RandScaleIntensity(prob=0.2, factors=0.1),
-            apply_to=['image']
-        ),
-        ImageTransformWrapper(
-            RandShiftIntensity(prob=0.2, offsets=0.1),
-            apply_to=['image']
-        ),
-        ImageTransformWrapper(
-            RandBiasField(prob=0.1, coeff_range=(0.0, 0.3)),
-            apply_to=['image']
-        ),
-        ImageTransformWrapper(
-            RandHistogramShift(prob=0.1, num_control_points=(3, 5)),
-            apply_to=['image']
-        ),
-        AdaNorm.make(),
-    ])
+    train_transforms, transforms = get_train_test_transforms(PATCH_SIZE_VX)
     
     ## load splits
     if not os.path.exists('tuning-train.json'):
