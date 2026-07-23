@@ -4,7 +4,7 @@ import os
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader, TopAneu_TnTs2_DS_for_vessel_pt
 from TnT.utils.transforms import DecodeTargetForVessels, LateralityInvarianceForVessels, Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
-from TnT.trainer.base import Trainer
+from TnT.trainer.base import BasicTrainer
 from monai.transforms import (
     RandAffined,
     RandAffine,
@@ -136,11 +136,11 @@ if __name__ == '__main__':
     test_dl = DataLoader(test, batch_size=4, shuffle=False)
     
     ## setup objs
-    trainer = Trainer()
-    model = TnTS2(*LateralityInvarianceForVessels.get_n_locs_lats())
+    trainer = BasicTrainer()
+    model = TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/best_val_loss', *LateralityInvarianceForVessels.get_n_locs_lats())
     
     ## train or load
-    model = trainer.train(model, train_dl, val_dl, 10, 5)
+    #model = trainer.train(model, train_dl, val_dl, 10, 5)
 
     ## QnD test
     print('#'*20, 'Training ACC', '#'*20)

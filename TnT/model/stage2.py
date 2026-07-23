@@ -72,7 +72,7 @@ class TnTS2(nn.Module):
     def from_pretrained(pth, n_locs, n_lats):
         pth=pl.Path(pth)
         model = TnTS2(n_locs, n_lats)
-        try: model = model.load(pth) ## will error if loc/lat missmatch
+        try: model.load(pth) ## will error if loc/lat missmatch
         except: ## instead only load backbone and laterality head, build location head from scratch
             model.bb.load_state_dict(torch.load(pth/'bb.pth'))
             model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))

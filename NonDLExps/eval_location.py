@@ -2,7 +2,7 @@ import glob
 import os
 import sys
 import numpy as np
-import assign_vessel_location_v2 as m
+import NonDLExps.assign_vessel_location_v2 as m
 
 INV_LOCATION = {v: k for k, v in m.LOCATION_LABELS.items()}
 MIN_VOXELS = 5

@@ -9,7 +9,7 @@ from skimage.morphology import skeletonize
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import GroupKFold
 
-import assign_vessel_location_v2 as m
+import NonDLExps.assign_vessel_location_v2 as m
 
 INV_LOCATION = {v: k for k, v in m.LOCATION_LABELS.items()}
 VESSEL_VALUES = sorted(m.VESSEL_LABELS)          # 1..36, fixed column order
