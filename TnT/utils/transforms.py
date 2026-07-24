@@ -108,6 +108,7 @@ class MaybeToTensor():
     def __call__(self, dct):
         for k, v in dct.items():
             if k in self.convertable:
+                if k == "location" and isinstance(v, dict): dct[k] = {kk:torch.tensor(vv, dtype=self.dtype) for kk, vv in v.items()}
                 if isinstance(v, np.ndarray): dct[k] = torch.from_numpy(v).to(self.dtype)
                 else: dct[k] = torch.tensor(v).to(self.dtype)
         return dct
@@ -670,18 +671,46 @@ class LateralityInvarianceForVessels():
             35: [1,0],
             36: [0,1]
         }
-        self.n_locs, self.n_lats = self.get_n_locs_lats()
+        self.n_locs_a, self.n_locs_v, self.n_lats = self.get_n_locs_lats()
+        self.associated_aneus = {
+                    0:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    1:[0,0,0,0,1,1,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    2:[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    3:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0],
+                    4:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0],
+                    5:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    6:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+                    7:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0],
+                    8:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0],
+                    9:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
+                    10:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0],
+                    11:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+                    12:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    13:[0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    14:[0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    15:[0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    16:[0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    17:[0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    18:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0],
+                    19:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    20:[0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+                }
         
     def __call__(self, dct):
+        
         if isinstance(dct, dict):
             loc = self.locmap[dct['location']]
             lat = self.latmap[dct['location']]
-            print(loc)
             hot = [0]*self.n_locs
             hot[loc]=1 
-            hot += lat
             
-            dct['location'] = hot
+            loc_dct = {
+                        "aneurysm": self.associated_aneus[loc],
+                        "vessel": hot,
+                        "laterality": lat
+                    }
+            
+            dct['location'] = loc_dct
             return dct
         else:
             loc = self.locmap[dct]
@@ -689,9 +718,14 @@ class LateralityInvarianceForVessels():
         
             hot = [0]*self.n_locs
             hot[loc]=1
-            hot += lat
             
-            return hot
+            loc_dct = {
+                        "aneurysm": self.associated_aneus[loc],
+                        "vessel": hot,
+                        "laterality": lat
+                    }
+            dct['location'] = loc_dct
+            return dct
         
     @staticmethod
     def get_n_locs_lats():

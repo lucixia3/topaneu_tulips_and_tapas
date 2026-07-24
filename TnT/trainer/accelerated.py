@@ -51,8 +51,8 @@ class AccelTrainer():
             for batch in tqdm.tqdm(train_dl, desc='Training batches', disable=not accel.is_main_process):
                 self.optim.zero_grad()
                 with accel.autocast():
-                    loc, lat = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                    l = loss(loc, lat, batch['location'].to(self.device))
+                    lat, loc_a, loc_v = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                    l = loss(lat, loc_a, loc_v, batch['location'].to(self.device))
                 accel.backward(l)
                 self.optim.step()
                 loss_history.add_train(accel.gather(l).mean())
@@ -62,8 +62,8 @@ class AccelTrainer():
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches', disable=not accel.is_main_process):
                     with accel.autocast():
-                        loc, lat = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                        l = loss(loc, lat, batch['location'].to(self.device))
+                        lat, loc_a, loc_v = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                        l = loss(lat, loc_a, loc_v, batch['location'].to(self.device))
                     loss_history.add_val(accel.gather(l).mean())
             
             ## scheduling
@@ -112,11 +112,11 @@ class AccelTrainer():
         ids = []
         for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
             ids += batch['id']
-            gts.append(batch['location'])
-            pred_lat, pred_loc = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+            gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
+            pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
             pred_lat=pred_lat.detach().to('cpu')
             pred_loc=pred_loc.detach().to('cpu')
-            preds.append(torch.concat([pred_loc, pred_lat], dim=-1))
+            preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))
         
         preds = torch.concat(preds, dim=0).to(torch.uint8)  
         preds_dec = decoder(preds)
