@@ -97,11 +97,18 @@ class BasicTrainer():
         ids = []
         for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
             ids += batch['id']
-            gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
-            pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-            pred_lat=pred_lat.detach().to('cpu')
-            pred_loc_v=pred_loc_v.detach().to('cpu')
-            preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))
+            try: # if its model.stage2_dev
+                pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                pred_lat=pred_lat.detach().to('cpu')
+                pred_loc_v=pred_loc_v.detach().to('cpu')
+                preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))
+                gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
+            except: # if its model.stage2
+                pred_lat, pred_loc  = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                pred_lat=pred_lat.detach().to('cpu')
+                pred_loc=pred_loc.detach().to('cpu')
+                preds.append(torch.concat([pred_loc, pred_lat], dim=-1))
+                gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
         
         preds = torch.concat(preds, dim=0).to(torch.uint8)  
         preds_dec = decoder(preds)

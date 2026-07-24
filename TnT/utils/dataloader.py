@@ -596,7 +596,7 @@ def TnTs2_collate_dev(batch):
     return {
         'image': torch.stack(images, dim=0),
         'coords': torch.stack(coords, dim=0),
-        'location': [{k:torch.stack(v, dim=0) for k,v in loc} for loc in locations],
+        'location': [{k:torch.stack(v, dim=0) for k,v in loc.items()} for loc in locations],
         'modality': modalities, # just a basic list
         'id': ids, # just a basic list
         "vloc": torch.stack(vlocs, dim=0) if any(vlocs) else None
