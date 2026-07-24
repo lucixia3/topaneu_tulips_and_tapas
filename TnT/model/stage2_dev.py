@@ -88,7 +88,7 @@ class TnTS2(nn.Module):
         loc_a_loss = F.cross_entropy(loc_a, targets["aneurysm"])
         lat_loss = F.cross_entropy(lat, targets["laterality"])
         if "vessel" in targets.keys():
-            loc_v_loss = F.cross_entropy(loc_v, targets["vessel"])
+            loc_v_loss = F.binary_cross_entropy_with_logits(loc_v, targets["vessel"])
             return loc_a_loss+lat_loss+loc_v_loss
         else: return loc_a_loss+lat_loss
 
@@ -101,6 +101,6 @@ class TnTS2Loss(nn.Module):
         loc_a_loss = F.cross_entropy(loc_a, targets["aneurysm"])
         lat_loss = F.cross_entropy(lat, targets["laterality"])
         if "vessel" in targets.keys():
-            loc_v_loss = F.cross_entropy(loc_v, targets["vessel"])
+            loc_v_loss = F.binary_cross_entropy_with_logits(loc_v, targets["vessel"])
             return loc_a_loss+lat_loss+loc_v_loss
         else: return loc_a_loss+lat_loss
