@@ -729,7 +729,7 @@ class LateralityInvarianceForVessels():
         
     @staticmethod
     def get_n_locs_lats():
-        return 21, 2
+        return 28, 21, 2
     
 class DecodeTargetForVessels():
     def __init__(self):
