@@ -93,9 +93,8 @@ class TnTS2(nn.Module):
         else: return loc_a_loss+lat_loss
 
 class TnTS2Loss(nn.Module):
-    def __init__(self, n_locs):
+    def __init__(self):
         super().__init__()
-        self.n_locs = n_locs
         
     def forward(self, lat, loc_a, loc_v, targets):        
         loc_a_loss = F.cross_entropy(loc_a, targets["aneurysm"])
