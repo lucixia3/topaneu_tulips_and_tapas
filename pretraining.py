@@ -1,7 +1,7 @@
 from pprint import pprint
 from pathlib import Path
 import os
-from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader, TopAneu_TnTs2_DS_for_vessel_pt
+from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate_dev, DataLoader, TopAneu_TnTs2_DS_for_vessel_pt
 from TnT.utils.transforms import get_train_test_transforms, DecodeTargetForVessels, LateralityInvarianceForVessels, Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2_dev import TnTS2
 from TnT.trainer.base import BasicTrainer
@@ -56,9 +56,9 @@ if __name__ == '__main__':
     else: test = TopAneu_TnTs2_DS_for_vessel_pt.load('pre-ves-test.json', transforms)
     
     ## PrEP DL
-    train_dl = DataLoader(train, batch_size=4, shuffle=True)
-    val_dl = DataLoader(val, batch_size=4, shuffle=True)
-    test_dl = DataLoader(test, batch_size=4, shuffle=False)
+    train_dl = DataLoader(train, batch_size=4, shuffle=True, collate_fn=TnTs2_collate_dev)
+    val_dl = DataLoader(val, batch_size=4, shuffle=True, collate_fn=TnTs2_collate_dev)
+    test_dl = DataLoader(test, batch_size=4, shuffle=False, collate_fn=TnTs2_collate_dev)
     
     ## setup objs
     trainer = BasicTrainer()
