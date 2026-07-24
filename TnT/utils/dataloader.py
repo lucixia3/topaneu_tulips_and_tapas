@@ -576,3 +576,28 @@ def TnTs2_collate(batch):
         'id': ids, # just a basic list
         "vloc": torch.stack(vlocs, dim=0) if any(vlocs) else None
     }
+
+def TnTs2_collate_dev(batch):
+    # Assumes all data is already a tensor, if not will attempt to cast to tensor
+    images = []
+    coords = []
+    locations = []
+    modalities = []
+    ids = []
+    vlocs = []
+    for sample in batch:
+        images.append(sample['image'])
+        coords.append(sample['coords'])
+        locations.append(sample['location'])
+        modalities.append(sample['modality'])
+        ids.append(sample['id'])
+        if "vloc" in sample.keys(): vlocs.append(sample["vloc"])
+        
+    return {
+        'image': torch.stack(images, dim=0),
+        'coords': torch.stack(coords, dim=0),
+        'location': [{k:torch.stack(v, dim=0) for k,v in loc} for loc in locations],
+        'modality': modalities, # just a basic list
+        'id': ids, # just a basic list
+        "vloc": torch.stack(vlocs, dim=0) if any(vlocs) else None
+    }
