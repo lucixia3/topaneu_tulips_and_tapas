@@ -115,7 +115,7 @@ class AccelTrainer():
             gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
             pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
             pred_lat=pred_lat.detach().to('cpu')
-            pred_loc=pred_loc.detach().to('cpu')
+            pred_loc_v=pred_loc_v.detach().to('cpu')
             preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))
         
         preds = torch.concat(preds, dim=0).to(torch.uint8)  

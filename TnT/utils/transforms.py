@@ -107,8 +107,8 @@ class MaybeToTensor():
         
     def __call__(self, dct):
         for k, v in dct.items():
-            if k in self.convertable:
-                if k == "location" and isinstance(v, dict): dct[k] = {kk:torch.tensor(vv, dtype=self.dtype) for kk, vv in v.items()}
+            if k == "location": dct[k] = {kk:torch.tensor(vv, dtype=self.dtype) for kk, vv in v.items()}
+            elif k in self.convertable:
                 if isinstance(v, np.ndarray): dct[k] = torch.from_numpy(v).to(self.dtype)
                 else: dct[k] = torch.tensor(v).to(self.dtype)
         return dct
@@ -701,7 +701,7 @@ class LateralityInvarianceForVessels():
         if isinstance(dct, dict):
             loc = self.locmap[dct['location']]
             lat = self.latmap[dct['location']]
-            hot = [0]*self.n_locs
+            hot = [0]*self.n_locs_v
             hot[loc]=1 
             
             loc_dct = {
@@ -709,23 +709,20 @@ class LateralityInvarianceForVessels():
                         "vessel": hot,
                         "laterality": lat
                     }
-            
-            dct['location'] = loc_dct
-            return dct
+            return loc_dct
         else:
             loc = self.locmap[dct]
             lat = self.latmap[dct]
         
-            hot = [0]*self.n_locs
+            hot = [0]*self.n_locs_v
             hot[loc]=1
             
             loc_dct = {
                         "aneurysm": self.associated_aneus[loc],
                         "vessel": hot,
                         "laterality": lat
-                    }
-            dct['location'] = loc_dct
-            return dct
+                    } 
+            return loc_dct
         
     @staticmethod
     def get_n_locs_lats():
@@ -841,9 +838,9 @@ class RandomFlipLaterality():
         if self.execute: 
             if dct['image'].dim() == 3:
                 dct['image'] = torch.flip(dct['image'], dims=[self.aterality_dimension])
-                dct['location'] = self._flip_laterality(dct['location'])
+                dct['location']['laterality'] = self._flip_laterality(dct['location']['laterality'])
             else:
                 dct['image'] = torch.flip(dct['image'], dims=[self.channels_laterality_dimension])
-                dct['location'] = self._flip_laterality(dct['location'])
+                dct['location']['laterality'] = self._flip_laterality(dct['location']['laterality'])
             return dct
         else: return dct

@@ -45,7 +45,7 @@ class BasicTrainer():
             model.train()
             for batch in tqdm.tqdm(train_dl, desc='Training batches'):
                 self.optim.zero_grad()
-                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
+                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'])
                 l.backward()
                 self.optim.step()
                 loss_history.add_train(l)
@@ -54,7 +54,7 @@ class BasicTrainer():
             model.eval()
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
-                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'].to(self.device))
+                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'])
                     loss_history.add_val(l)
             
             ## scheduling
@@ -97,11 +97,11 @@ class BasicTrainer():
         ids = []
         for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
             ids += batch['id']
-            gts.append(batch['location'])
-            pred_lat, pred_loc = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+            gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
+            pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
             pred_lat=pred_lat.detach().to('cpu')
-            pred_loc=pred_loc.detach().to('cpu')
-            preds.append(torch.concat([pred_loc, pred_lat], dim=-1))
+            pred_loc_v=pred_loc_v.detach().to('cpu')
+            preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))
         
         preds = torch.concat(preds, dim=0).to(torch.uint8)  
         preds_dec = decoder(preds)
