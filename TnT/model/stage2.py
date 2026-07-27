@@ -78,6 +78,7 @@ class TnTS2(nn.Module):
         return model
     
     def loss(self, patch, coords, modalities, targets):
+        targets = targets['aneurysm']
         unbatched = isinstance(modalities, str)
         if unbatched:
             modalities = [modalities]
