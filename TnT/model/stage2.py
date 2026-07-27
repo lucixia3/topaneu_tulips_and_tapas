@@ -75,6 +75,7 @@ class TnTS2(nn.Module):
         model.bb.load_state_dict(torch.load(pth/'bb.pth'))
         model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
         model.location.load_state_dict(torch.load(pth/'location_a.pth'))
+        return model
     
     def loss(self, patch, coords, modalities, targets):
         unbatched = isinstance(modalities, str)
