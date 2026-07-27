@@ -78,7 +78,7 @@ class TopAneu_TnTs2_DS(Dataset):
             ], axis=0
         )
         
-        if smp['location'][0]==1: # if it is one the bg patches need to gen a random sphere
+        if smp['location']['aneurysm'][0]==1: # if it is one the bg patches need to gen a random sphere
             multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
         
         coords_in_vbb = [

@@ -62,7 +62,7 @@ if __name__ == '__main__':
     
     ## setup objs
     trainer = BasicTrainer()
-    model = TnTS2(*LateralityInvarianceForVessels.get_n_locs_lats())
+    model = TnTS2.from_pretrained(*LateralityInvarianceForVessels.get_n_locs_lats())
     
     ## train or load
     model = trainer.train(model, train_dl, val_dl, 1, None)

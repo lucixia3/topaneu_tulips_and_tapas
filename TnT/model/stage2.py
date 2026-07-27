@@ -78,7 +78,6 @@ class TnTS2(nn.Module):
         return model
     
     def loss(self, patch, coords, modalities, targets):
-        targets = targets['aneurysm']
         unbatched = isinstance(modalities, str)
         if unbatched:
             modalities = [modalities]
@@ -87,8 +86,8 @@ class TnTS2(nn.Module):
 
         lat, loc = self.forward(patch, coords, modalities)
         
-        loc_loss = F.cross_entropy(loc, targets[:, :self.n_locs])
-        lat_loss = F.cross_entropy(lat, targets[:, self.n_locs:])
+        loc_loss = F.cross_entropy(loc, targets['aneurysm'].to(loc.device))
+        lat_loss = F.cross_entropy(lat, targets['laterality'].to(lat.device))
         return loc_loss+lat_loss
 
 class TnTS2Loss(nn.Module):

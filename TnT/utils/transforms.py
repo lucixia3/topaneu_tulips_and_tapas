@@ -317,19 +317,24 @@ class LateralityInvariance():
             lat = self.latmap[dct['location']]
             hot = [0]*self.n_locs
             hot[loc]=1 # offset due to indexing
-            hot += lat
             
-            dct['location'] = hot
-            return dct
+            return {
+                        "aneurysm": hot,
+                        "vessel": [],
+                        "laterality": lat
+                    } 
         else:
             loc = self.locmap[dct]
             lat = self.latmap[dct]
         
             hot = [0]*self.n_locs
             hot[loc]=1
-            hot += lat
             
-            return hot
+            return {
+                        "aneurysm": hot,
+                        "vessel": [],
+                        "laterality": lat
+                    } 
         
     @staticmethod
     def get_n_locs_lats():

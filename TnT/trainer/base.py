@@ -108,7 +108,7 @@ class BasicTrainer():
                 pred_lat=pred_lat.detach().to('cpu')
                 pred_loc=pred_loc.detach().to('cpu')
                 preds.append(torch.concat([pred_loc, pred_lat], dim=-1))
-                gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
+                gts.append(torch.concat([batch['location']['aneurysm'], batch['location']['laterality']], dim=-1))
         
         preds = torch.concat(preds, dim=0).to(torch.uint8)  
         preds_dec = decoder(preds)
