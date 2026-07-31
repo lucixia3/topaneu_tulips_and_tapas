@@ -254,7 +254,9 @@ class LateralityInvariance():
             47: 26,
             48: 26,
             49: 27,
-            50: 27
+            50: 27,
+            51: 28,
+            52: 28
         }
         self.latmap = { # stored as [R, L]
             0: [0, 0],
@@ -307,7 +309,9 @@ class LateralityInvariance():
             47: [1, 0],
             48: [0, 1],
             49: [1, 0],
-            50: [0, 1]
+            50: [0, 1],
+            51: [1, 0],
+            52: [0, 1],
         }
         self.n_locs, self.n_lats = self.get_n_locs_lats()
         
@@ -338,7 +342,7 @@ class LateralityInvariance():
         
     @staticmethod
     def get_n_locs_lats():
-        return 28, 2
+        return 29, 2
 class DecodeTarget():
     def __init__(self):
         self.map = {
@@ -369,7 +373,8 @@ class DecodeTarget():
             24:43,
             25:45,
             26:47,
-            27:49
+            27:49,
+            28:51
         }
         self.excl_from_lat = [0, 7, 8, 17, 36]
         self.lit_loc_lookup = {
@@ -399,8 +404,9 @@ class DecodeTarget():
             23: "4.4 A3",
             24: "4.5 Distal ACA branches",
             25: "5.1 M1 trunk",
-            26: "5.2 M1-M2 junction",
-            27: "5.3 Distal-M2M3",
+            26: "5.2 M1 early bifurcation",
+            27: "5.3 M1-M2 junction",
+            28: "5.4 Distal-M2M3",
         }
     
     def __call__(self, obj):
