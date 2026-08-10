@@ -15,7 +15,7 @@ class TnTS2(nn.Module):
         self.bb = resnet50(spatial_dims=3, n_input_channels=3) # outputs [B, 400]
         self.laterality = nn.Linear(404, self.n_lats)
         self.location_vessel = nn.Linear(404, self.n_locs_v)
-        self.location_aneu = nn.Linear(404, self.n_locs_a) # in pretraining is the vessel classes
+        self.location_aneu = nn.Linear(404+self.n_locs_v, self.n_locs_a) # in pretraining is the vessel classes
         
     def forward(self, patch, coords, modalities):
         unbatched = isinstance(modalities, str)
@@ -73,14 +73,23 @@ class TnTS2(nn.Module):
         self.location_vessel.load_state_dict(torch.load(pth/'location.pth'))
         self.location_aneu.load_state_dict(torch.load(pth/'aneu.pth'))
         self.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
+        self.freeze()
     
     @staticmethod
-    def from_pretrained(pth, n_locs_v, n_locs_a, n_lats):
+    def from_pretrained(pth):
         pth=pl.Path(pth)
-        model = TnTS2(n_locs_v, n_locs_a, n_lats)
+        model = TnTS2(21, 29, 2)
         model.bb.load_state_dict(torch.load(pth/'bb.pth'))
         model.location_vessel.load_state_dict(torch.load(pth/'location.pth'))
         model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
+        model.freeze()
+        return model
+        
+    def freeze(self):
+        for param in self.bb.parameters():
+            param.requires_grad = False
+        for param in self.location_vessel.parameters():
+            param.requires_grad = False
         
     def loss(self, patch, coords, modalities, targets):
         unbatched = isinstance(modalities, str)
@@ -89,10 +98,10 @@ class TnTS2(nn.Module):
             patch = patch.unsqueeze(0)
             coords = coords.unsqueeze(0)
 
-        lat, loc = self.forward(patch, coords, modalities)
+        lat, _, loc = self.forward(patch, coords, modalities)
         
-        loc_loss = F.cross_entropy(loc, targets[:, :self.n_locs])
-        lat_loss = F.cross_entropy(lat, targets[:, self.n_locs:])
+        loc_loss = F.cross_entropy(loc, targets[:, :self.n_locs_a])
+        lat_loss = F.cross_entropy(lat, targets[:, self.n_locs_a:])
         return loc_loss+lat_loss
 
 class TnTS2Loss(nn.Module):
