@@ -11,7 +11,8 @@ class InferencePipeline():
         self.device = device
         self.s2_model.to(self.device)
         self.s2_model.eval()
-        
+    
+    @torch.no_grad()  
     def __call__(self, sample: sitk.Image, modality: str):
         if isinstance(sample, sitk.Image): 
             spacing = sample.GetSpacing()
@@ -21,17 +22,25 @@ class InferencePipeline():
             stack = [sample['image'], sample['location_mask']!=0, sample['vessel_mask']!=0] ## fallback for s2 development purposes
             stack = np.stack(stack, axis=0)
             
-        cc, n = label(stack[2]) # labels the vessel mask channel
+        cc, n = label(stack[1]) # labels the vessel mask channel
         if n == 0: # early exit if no segmentation results
-            print('No aneurysms segmented')
-            return np.zeros_like(stack[2])
+            #print('No aneurysms segmented')
+            output =  np.zeros_like(stack[1])
         
-        output = np.zeros_like(stack[2]) # the image to write the things to
-        for comp in range(1, n+1):
-            cur_stack = stack.copy()
-            cur_stack[2] = cc==comp
-            predicted_label = self._stage2(cur_stack, spacing, modality)
-            print(predicted_label)
+        else:
+            output = np.zeros_like(stack[1]) # the image to write the things to
+            for comp in range(1, n+1):
+                cur_stack = stack.copy()
+                cur_stack[1] = cc==comp
+                predicted_label = self._stage2(cur_stack, spacing, modality)
+                #print(predicted_label)
+                output[cc==comp]=predicted_label[2]
+        
+        if isinstance(sample, sitk.Image): 
+            outimg = sitk.GetImageFromArray(output)
+            outimg.CopyInformation(sample)
+            return outimg
+        else: return output
     
         
     def _stage1(self, sample: sitk.Image):
@@ -42,7 +51,7 @@ class InferencePipeline():
         centroid = np.mean(np.argwhere(sample[2]), axis=0).tolist()
         
         # vessel bbox
-        vbb_coords = np.argwhere(sample[1]) # VBB = Vessel Bounding Box
+        vbb_coords = np.argwhere(sample[2]) # VBB = Vessel Bounding Box
         vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
         vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
         vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
@@ -61,12 +70,22 @@ class InferencePipeline():
             centroid[2]-vbb[2][0]
         ]
         
+        dct = {
+                    'image': torch.from_numpy(cropped_stack),
+                    'coords': torch.tensor(np.array(coords_in_vbb, dtype=int)/np.array([int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])], dtype=int)), # relative
+                    'modality': modality, # string
+                    'spacing': spacing
+                }
+        
+        # transform
+        dct = self.s2_transforms(dct)
+        
         # compute the thang
-        pred_lat, pred_loc = self.s2_model.classify(torch.from_numpy(cropped_stack).unsqueeze(0).to(self.device), torch.tensor(coords_in_vbb).unsqueeze(0).to(self.device), [modality])
+        pred_lat, pred_loc = self.s2_model.classify(dct['image'].unsqueeze(0).to(self.device), dct['coords'].unsqueeze(0).to(self.device), [dct['modality']])
         pred_lat=pred_lat.detach().to('cpu')
         pred_loc=pred_loc.detach().to('cpu')
         
-        decoded_label = self.decoder(torch.concat([pred_loc, pred_lat], dim=-1))
+        decoded_label = self.decoder(torch.concat([pred_loc, pred_lat], dim=-1))[0]
         return decoded_label
 
     def _center_crop(self, img, coords, spacing, size_mm):

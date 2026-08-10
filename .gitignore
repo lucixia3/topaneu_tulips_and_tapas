@@ -240,3 +240,4 @@ test.png
 val.png
 .gitignore
 train.png
+*acc/

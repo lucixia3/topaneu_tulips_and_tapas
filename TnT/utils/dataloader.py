@@ -53,6 +53,14 @@ class TopAneuDS(Dataset):
             
         return dct
     
+    @staticmethod
+    def load(path, transforms=None):
+        path = str(path)+'.json' if not str(path).endswith('.json') else str(path)
+        with open(path, 'r') as file:
+            loaded = json.load(file)
+        ds = TopAneuDS(source=loaded['source'], transforms=transforms, cases=loaded['cases'])
+        return ds
+    
 class TopAneu_TnTs2_DS(Dataset):
     ########################### builtins
     def __init__(self, source, transforms=None, cases=None, patch_size_mm=50):

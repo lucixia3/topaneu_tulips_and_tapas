@@ -1,5 +1,6 @@
 import numpy as np
 import json, os, math, glob
+from tqdm import tqdm
 from pathlib import Path
 import SimpleITK as sitk
 from pprint import pprint
@@ -343,20 +344,27 @@ def evaluation_average(metrics: dict) -> dict:
         averages["DICE"]+=metrics[f"DICE_{i}"]
         averages["HD95"]+=metrics[f"HD95_{i}"]
         averages["VOLSIM"]+=metrics[f"VOLSIM_{i}"]
-    return {k:v/N_CLASSES for k, v in averages.items()}
+    return {k:float(v/N_CLASSES) for k, v in averages.items()}
 
 class TopAneu26LikeEvaluator():
-    def __init__(self, pipeline):
+    def __init__(self, pipeline, wdir):
         self.pipeline = pipeline
+        self.wdir = Path(wdir)
         
     def eval(self, testset):
         results = []
-        for i in range(len(testset)):
+        for i in tqdm(range(len(testset)), desc='Evaluating'):
             smp = testset[i]
-            pred = self.pipeline(smp)
+            pred = self.pipeline(smp, smp['modality'])
+            os.makedirs(self.wdir/smp['id'].split('.')[0])
+            gt = sitk.GetImageFromArray(smp['location_mask'])
+            p = sitk.GetImageFromArray(pred)
+            sitk.WriteImage(gt, self.wdir/smp['id'].split('.')[0]/'gt.nii.gz')
+            sitk.WriteImage(p, self.wdir/smp['id'].split('.')[0]/'pred.nii.gz')
             results.append(evaluation_function(pred, smp['location_mask']))
         aggregates = evaluation_aggregation(results)
         averages = evaluation_average(aggregates)
         print('Results:')
         pprint(averages)
         return averages
+    
