@@ -1,4 +1,4 @@
-from TnT.model.stage2 import TnTS2
+from TnT.model.stage2_pretraining import TnTS2
 from TnT.utils.transforms import LateralityInvariance, get_train_test_transforms
 from TnT.utils.dataloader import TopAneuDS, TnTs2_collate
 from TnT.evaluation.topaneu26 import TopAneu26LikeEvaluator
@@ -10,8 +10,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 4
     EARLY_STOP_PATCHING = False
     
-    ## Prep data
-    test = TopAneuDS.load('train.json')
+    
     
     ## Prep model
     model = TnTS2(*LateralityInvariance.get_n_locs_lats())
@@ -20,6 +19,20 @@ if __name__ == '__main__':
     ## Prep pipeline
     pl = InferencePipeline(model, PATCH_SIZE_VX, PATCH_SIZE_MM)
     
+    ## Prep data
+    test = TopAneuDS.load('test.json')
     ## Prep evaluator
-    ev = TopAneu26LikeEvaluator(pl, 'trainacc')
+    ev = TopAneu26LikeEvaluator(pl, 'test_acc')
+    _ = ev.eval(test)
+    
+    ## Prep data
+    test = TopAneuDS.load('train.json')
+    ## Prep evaluator
+    ev = TopAneu26LikeEvaluator(pl, 'train_acc')
+    _ = ev.eval(test)
+        
+    ## Prep data
+    test = TopAneuDS.load('val.json')
+    ## Prep evaluator
+    ev = TopAneu26LikeEvaluator(pl, 'val_acc')
     _ = ev.eval(test)

@@ -356,6 +356,7 @@ class TopAneu26LikeEvaluator():
         for i in tqdm(range(len(testset)), desc='Evaluating'):
             smp = testset[i]
             pred = self.pipeline(smp, smp['modality'])
+            assert isinstance(pred, np.ndarray)
             os.makedirs(self.wdir/smp['id'].split('.')[0])
             gt = sitk.GetImageFromArray(smp['location_mask'])
             p = sitk.GetImageFromArray(pred)

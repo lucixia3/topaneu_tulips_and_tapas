@@ -4,6 +4,11 @@ import matplotlib.pyplot as plt
 import json
 
 def loc_lat_cls_acc(gts, preds):
+    print('----- EVALUATING -----')
+    for gt, pred in zip(gts, preds):
+        print(f'    > GT: loc:{gt[0]} - lat:{gt[1]} - lbl:{gt[2]}')
+        print(f'    > PD: loc:{pred[0]} - lat:{pred[1]} - lbl:{pred[2]}')
+    
     loc_acc = sum([gt[0]==pred[0] for gt, pred in zip(gts, preds)])/len(gts)
     lat_acc = sum([gt[1]==pred[1] for gt, pred in zip(gts, preds)])/len(gts)
     cls_acc = sum([gt[2]==pred[2] for gt, pred in zip(gts, preds)])/len(gts)

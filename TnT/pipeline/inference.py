@@ -1,4 +1,5 @@
 from TnT.utils.transforms import get_train_test_transforms, DecodeTarget
+from TnT.utils.dataloader import TopAneu_TnTs2_DS
 import SimpleITK as sitk, numpy as np, torch
 from scipy.ndimage import label
 
@@ -14,107 +15,96 @@ class InferencePipeline():
     
     @torch.no_grad()  
     def __call__(self, sample: sitk.Image, modality: str):
-        if isinstance(sample, sitk.Image): 
-            spacing = sample.GetSpacing()
-            stack = torch.stack(self._stage1(sample), dim=0).numpy()
+        if isinstance(sample, sitk.Image):
+            image, vmask, lmask = self._stage1(sample)
         elif isinstance(sample, dict):
-            spacing = sample['spacing']
-            stack = [sample['image'], sample['location_mask']!=0, sample['vessel_mask']!=0] ## fallback for s2 development purposes
-            stack = np.stack(stack, axis=0)
-            
-        cc, n = label(stack[1]) # labels the vessel mask channel
-        if n == 0: # early exit if no segmentation results
-            #print('No aneurysms segmented')
-            output =  np.zeros_like(stack[1])
+            image=sample['image']
+            vmask=sample['vessel_mask']!=0
+            lmask=sample['location_mask']!=0
         
-        else:
-            output = np.zeros_like(stack[1]) # the image to write the things to
-            for comp in range(1, n+1):
-                cur_stack = stack.copy()
-                cur_stack[1] = cc==comp
-                predicted_label = self._stage2(cur_stack, spacing, modality)
-                #print(predicted_label)
-                output[cc==comp]=predicted_label[2]
+        if np.any(lmask):
+            s2ds = CaseDL(image, vmask, lmask, modality, self.s2_transforms, sample.GetSpacing() if isinstance(sample, sitk.Image) else sample['spacing'], self.patch_size_mm)
+            for i in range(len(s2ds)):
+                smp = s2ds[i]
+                pred = self._stage2(smp)
+                s2ds.add_label(i, pred)
+            output = s2ds.make_mask()
+        else: output = np.zeros_like(vmask)
         
         if isinstance(sample, sitk.Image): 
-            outimg = sitk.GetImageFromArray(output)
+            outimg = sitk.GetImageFromArray(output.astype(np.uint8))
             outimg.CopyInformation(sample)
             return outimg
-        else: return output
-    
+        else: return output.astype(np.uint8)
         
     def _stage1(self, sample: sitk.Image):
         raise NotImplementedError('Needs to return a tuple of (\n   image: (as it was passed to the funciton, no mutations or transformations applied), \n    location_mask: (binary), \n    vessel_mask: (binary)\n)')
     
-    def _stage2(self, sample, spacing, modality):
-        # centroid in image space
-        centroid = np.mean(np.argwhere(sample[2]), axis=0).tolist()
+    def _stage2(self, smp: dict) -> int:
+        pred_lat, pred_loc = self.s2_model.classify(smp['image'].unsqueeze(0).to(self.device), smp['coords'].unsqueeze(0).to(self.device), [smp['modality']])
+        pred_lat=pred_lat.detach().to('cpu')
+        pred_loc=pred_loc.detach().to('cpu')
+        preds = torch.concat([pred_loc, pred_lat], dim=-1)
+        assert len(preds.shape)==2, 'only implemented for batched data'
+        decoded_label = self.decoder(preds)[0][2]
+        return decoded_label
         
-        # vessel bbox
-        vbb_coords = np.argwhere(sample[2]) # VBB = Vessel Bounding Box
+class CaseDL(TopAneu_TnTs2_DS):
+    def __init__(self, image, vmask, lmask, modality, transforms, spacing, patch_size_mm):
+        self.image = image
+        self.vmask = vmask
+        self.lmask = lmask
+        self.modality = 'CTA' if 'ct' in modality.lower() else 'MRA'
+        self.transforms = transforms
+        self.cc, self.n = label(self.lmask)
+        self.spacing = spacing
+        self.patch_size_mm = patch_size_mm
+        vbb_coords = np.argwhere(self.vmask) # VBB = Vessel Bounding Box
         vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
         vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
         vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
-        vbb = [vbb_d, vbb_h, vbb_w]
+        self.vbb = [vbb_d, vbb_h, vbb_w]
+        self.vbb_shape = [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])]
         
-        # crop in image space
-        cropped_stack = []
-        for i in range(3):
-            cropped_stack.append(self._center_crop(sample[i], centroid, spacing, self.patch_size_mm))
-        cropped_stack = np.stack(cropped_stack, axis=0)
+        self.assigned_labels = {}
         
-        # translate centorid to vessel space for inference
+    def __getitem__(self, idx):     
+        coords = np.mean(np.argwhere(self.cc==idx+1), axis=0).tolist()   
+        multichannel_img = np.stack( # 4D array: [C, H, D, W]
+            [
+                self._center_crop(self.image, coords, self.spacing, self.patch_size_mm),
+                self._center_crop(self.lmask, coords, self.spacing, self.patch_size_mm),
+                self._center_crop(self.vmask, coords, self.spacing, self.patch_size_mm)
+            ], axis=0
+        )
         coords_in_vbb = [
-            centroid[0]-vbb[0][0],
-            centroid[1]-vbb[1][0],
-            centroid[2]-vbb[2][0]
+            coords[0]-self.vbb[0][0],
+            coords[1]-self.vbb[1][0],
+            coords[2]-self.vbb[2][0]
         ]
         
         dct = {
-                    'image': torch.from_numpy(cropped_stack),
-                    'coords': torch.tensor(np.array(coords_in_vbb, dtype=int)/np.array([int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])], dtype=int)), # relative
-                    'modality': modality, # string
-                    'spacing': spacing
-                }
+            'image': multichannel_img,
+            'coords': np.array(coords_in_vbb, dtype=int)/np.array(self.vbb_shape, dtype=int), # relative
+            'modality': self.modality, # string
+            'spacing': self.spacing
+        }
         
-        # transform
-        dct = self.s2_transforms(dct)
+        if self.transforms:
+            dct = self.transforms(dct)
         
-        # compute the thang
-        pred_lat, pred_loc = self.s2_model.classify(dct['image'].unsqueeze(0).to(self.device), dct['coords'].unsqueeze(0).to(self.device), [dct['modality']])
-        pred_lat=pred_lat.detach().to('cpu')
-        pred_loc=pred_loc.detach().to('cpu')
-        
-        decoded_label = self.decoder(torch.concat([pred_loc, pred_lat], dim=-1))[0]
-        return decoded_label
+        return dct
 
-    def _center_crop(self, img, coords, spacing, size_mm):
-            sz_mm = round(size_mm/2)
-            sz = [round(sz_mm/sp) for sp in spacing]
-            shape = img.shape
-            
-            coords_lower = []
-            coords_upper = []
-            for c_ax, sh_ax, sz_ax in zip(coords, shape, sz):
-    
-                upper = c_ax+sz_ax
-                lower = c_ax-sz_ax
-                
-                if upper<=sh_ax and lower >=0:
-                    coords_lower.append(lower)
-                    coords_upper.append(upper)
-                elif upper > sh_ax:
-                    diff = upper-sh_ax
-                    coords_upper.append(sh_ax)
-                    coords_lower.append(lower-diff)
-                elif lower < 0:
-                    diff = lower
-                    coords_lower.append(0)
-                    coords_upper.append(upper+abs(diff))
-            
-            crop = img[
-                int(coords_lower[0]):int(coords_upper[0]),
-                int(coords_lower[1]):int(coords_upper[1]),
-                int(coords_lower[2]):int(coords_upper[2])
-            ]            
-            return crop
+    def __len__(self):
+        return self.n
+
+    def add_label(self, idx, lbl):
+        assert isinstance(lbl, int)
+        self.assigned_labels[idx]=lbl
+        assert len(self.assigned_labels)<=len(self)
+        
+    def make_mask(self):
+        output = np.zeros_like(self.cc, dtype=np.uint8)
+        for idx, lbl in self.assigned_labels.items():
+            output[self.cc==idx+1]=lbl
+        return output

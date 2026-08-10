@@ -9,13 +9,12 @@ from TnT.utils.transforms import LateralityInvariance
 from monai.networks.nets import resnet50#, resnet18
 
 class TnTS2(nn.Module):
-    def __init__(self, n_locs_v, n_locs_a, n_lats):
+    def __init__(self, n_locs, n_lats):
         super().__init__()
-        self.n_locs_v, self.n_locs_a, self.n_lats = n_locs_v, n_locs_a, n_lats
+        self.n_locs, self.n_lats = n_locs, n_lats
         self.bb = resnet50(spatial_dims=3, n_input_channels=3) # outputs [B, 400]
         self.laterality = nn.Linear(404, self.n_lats)
-        self.location_vessel = nn.Linear(404, self.n_locs_v)
-        self.location_aneu = nn.Linear(404, self.n_locs_a) # in pretraining is the vessel classes
+        self.location = nn.Linear(404, self.n_locs) # in pretraining is the vessel classes
         
     def forward(self, patch, coords, modalities):
         unbatched = isinstance(modalities, str)
@@ -28,21 +27,18 @@ class TnTS2(nn.Module):
         modality_flag = torch.tensor([m == 'MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)
         x = torch.concat([x, coords, modality_flag], dim=-1)
         lat = self.laterality(x)
-        loc_v = self.location_vessel(x)
-        
-        loc_a = self.location_aneu(torch.concat([x, loc_v.detach()], dim=-1))
+        loc = self.location(x)
 
         if unbatched:
             lat = lat.squeeze(0)
-            loc_v = loc_v.squeeze(0)
-            loc_a = loc_a.squeeze(0)
+            loc = loc.squeeze(0)
 
-        return lat, loc_v, loc_a
+        return lat, loc
     
     def classify(self, patch, coords, modalities):
         unbatched = isinstance(modalities, str)
         if unbatched: raise RuntimeError("Unbatched data is not supported")
-        lat, _, loc = self.forward(patch, coords, modalities)
+        lat, loc = self.forward(patch, coords, modalities)
         lat_sigmoid, loc_sigmoid = F.sigmoid(lat), F.sigmoid(loc)
         
         assigned_lat = torch.zeros_like(lat_sigmoid, dtype=torch.uint8)
@@ -63,25 +59,25 @@ class TnTS2(nn.Module):
             pth=pth.parent/override
         if not os.path.exists(pth): os.makedirs(pth)
         torch.save(self.bb.state_dict(), pth/'bb.pth')
-        torch.save(self.location_vessel.state_dict(), pth/'location.pth')
-        torch.save(self.location_aneu.state_dict(), pth/'aneu.pth')
+        torch.save(self.location.state_dict(), pth/'location.pth')
         torch.save(self.laterality.state_dict(), pth/'laterality.pth')
         
     def load(self, pth):
         pth=pl.Path(pth)
         self.bb.load_state_dict(torch.load(pth/'bb.pth'))
-        self.location_vessel.load_state_dict(torch.load(pth/'location.pth'))
-        self.location_aneu.load_state_dict(torch.load(pth/'aneu.pth'))
+        self.location.load_state_dict(torch.load(pth/'location.pth'))
         self.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
     
     @staticmethod
-    def from_pretrained(pth, n_locs_v, n_locs_a, n_lats):
+    def from_pretrained(pth, n_locs, n_lats):
         pth=pl.Path(pth)
-        model = TnTS2(n_locs_v, n_locs_a, n_lats)
-        model.bb.load_state_dict(torch.load(pth/'bb.pth'))
-        model.location_vessel.load_state_dict(torch.load(pth/'location.pth'))
-        model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
-        
+        model = TnTS2(n_locs, n_lats)
+        try: model.load(pth) ## will error if loc/lat missmatch
+        except: ## instead only load backbone and laterality head, build location head from scratch
+            model.bb.load_state_dict(torch.load(pth/'bb.pth'))
+            model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
+        return model
+    
     def loss(self, patch, coords, modalities, targets):
         unbatched = isinstance(modalities, str)
         if unbatched:

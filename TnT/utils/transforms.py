@@ -414,9 +414,9 @@ class DecodeTarget():
         else: raise RuntimeError(f'Expected object to have 1 dimension if unbatched or 2 dimensions if batched, but received {len(obj.shape)} dimensions instead')
             
     def _conv_row(self, row):
-        loc_28, prob_loc = max(enumerate(row[:28]), key=lambda x: x[1])
+        loc_28, prob_loc = max(enumerate(row[:29]), key=lambda x: x[1])
         loc_50 = self.map[loc_28]
-        lat, prob_lat = max(enumerate(row[28:]), key=lambda x: x[1])
+        lat, prob_lat = max(enumerate(row[29:]), key=lambda x: x[1])
         
         if loc_50 not in self.excl_from_lat: # should be redundant as the model should learn not to assign laterality in these cases.
             loc_50 += lat
