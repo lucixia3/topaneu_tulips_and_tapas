@@ -186,3 +186,6 @@ def test_vessel_label_transform():
         dec = decoder(enc)
         
         print(f'Testing Vessel encoding/decoding: input={i}; output={dec}; Success={i==dec[-1]}')
+        
+if __name__ == '__main__':
+    test_aneu_label_transform()

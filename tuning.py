@@ -57,16 +57,18 @@ if __name__ == '__main__':
     else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
     
     ## PrEP DL
-    train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate_dev)
-    val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate_dev)
-    test_dl = DataLoader(test, batch_size=1, shuffle=False, collate_fn=TnTs2_collate_dev)
+    #train.append(val)
+    train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
+    val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
+    test_dl = DataLoader(test, batch_size=1, shuffle=False)
     
     ## setup objs
     trainer = BasicTrainer()
-    model = TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-15:14:32-24.07.26/best_val_loss', *LateralityInvariance.get_n_locs_lats())
+    model = TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
+    # model = TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/15_epochs', *LateralityInvariance.get_n_locs_lats())
     
-    ## train or load
-    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=5, early_stop=None)
+    # ## train or load
+    model = trainer.train(model, train_dl, val_dl, 10, 5)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
 
     ## QnD test
     print('#'*20, 'Testing ACC', '#'*20)

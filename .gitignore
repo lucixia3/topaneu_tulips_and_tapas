@@ -235,3 +235,9 @@ best_val_loss/
 test_outputs/
 _pretrain/
 _tune/
+test.png
+.gitignore
+val.png
+.gitignore
+train.png
+*acc/

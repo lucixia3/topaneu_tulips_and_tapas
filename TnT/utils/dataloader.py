@@ -53,6 +53,14 @@ class TopAneuDS(Dataset):
             
         return dct
     
+    @staticmethod
+    def load(path, transforms=None):
+        path = str(path)+'.json' if not str(path).endswith('.json') else str(path)
+        with open(path, 'r') as file:
+            loaded = json.load(file)
+        ds = TopAneuDS(source=loaded['source'], transforms=transforms, cases=loaded['cases'])
+        return ds
+    
 class TopAneu_TnTs2_DS(Dataset):
     ########################### builtins
     def __init__(self, source, transforms=None, cases=None, patch_size_mm=50):
@@ -391,17 +399,14 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
             upper = c_ax+sz_ax
             lower = c_ax-sz_ax
             
-            if upper<=sh_ax and lower >=0:
-                coords_lower.append(lower)
-                coords_upper.append(upper)
-            elif upper > sh_ax:
-                diff = upper-sh_ax
-                coords_upper.append(sh_ax)
-                coords_lower.append(lower-diff)
-            elif lower < 0:
-                diff = lower
-                coords_lower.append(0)
-                coords_upper.append(upper+abs(diff))
+            lower = max(lower, 0)
+            upper = min(upper, sh_ax)
+            
+            if upper - lower < min(2*sz_ax, sh_ax):
+                lower, upper = 0, sh_ax
+            
+            coords_lower.append(lower)
+            coords_upper.append(upper)
         
         crop = img[
             int(coords_lower[0]):int(coords_upper[0]),
@@ -444,7 +449,9 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
     def _put_random_sphere_as_aneu(self, img, spacing):
         diameter_in_mm = random.choice(np.arange(2, 10.5, 0.25)) # generates a random aneurysm diameter in mms
         diameter = max(spacing)*diameter_in_mm # converts into voxels bit lossy though since the spacing is non isometric, yielding basically an odd shape
-        diameter = min(min(img.shape), round(diameter))
+        diameter = min(min(img.shape if len(img.shape)<4 else img.shape[1:]), round(diameter))
+        diameter = max(diameter, 1)
+        
         obj = np.zeros((diameter, diameter, diameter), dtype=bool)
         radius = diameter / 2
         center = (diameter - 1) / 2  # e.g. for diameter=3: center=1.0
@@ -455,10 +462,14 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
         obj[dist_sq <= radius**2] = True
         obj = obj.astype(np.uint8)
         size_sph = obj.shape
-        center = [round(s/2) for s in img.shape[1:]]
-        lowers = [c-round(s) for c, s in zip(center, size_sph)]
-    
-        img[1, lowers[0]:lowers[0]+size_sph[0], lowers[1]:lowers[1]+size_sph[1], lowers[2]:lowers[2]+size_sph[2]] = obj
+        center = [s//2 for s in img.shape[1:]]
+        lowers = [max(0, min(c - s // 2, img.shape[1:][i] - s))
+              for i, (c, s) in enumerate(zip(center, size_sph))]
+
+        img[1,
+            lowers[0]:lowers[0]+size_sph[0],
+            lowers[1]:lowers[1]+size_sph[1],
+            lowers[2]:lowers[2]+size_sph[2]] = obj
         return img
     
     ###########################
