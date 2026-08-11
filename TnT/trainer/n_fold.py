@@ -3,7 +3,6 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn.functional import cross_entropy, binary_cross_entropy, softmax
 from pathlib import Path
 import os, tqdm, torch, numpy as np, shutil, datetime, json, copy
-from TnT.utils.transforms import DecodeTarget
 import matplotlib.pyplot as plt
 from TnT.trainer.base import BasicTrainer
 from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
@@ -12,6 +11,7 @@ from TnT.model.ensemble import Ensemble
 
 class NFoldTrainer():
     def __init__(self, n_folds=2, batch_size=4, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, device='cuda'):
+        raise NotImplementedError
         self.lr = lr
         self.optim = optim
         self.sched = sched

@@ -3,8 +3,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn.functional import cross_entropy, binary_cross_entropy, softmax
 from pathlib import Path
 import os, tqdm, torch, numpy as np, shutil, datetime, json
-from TnT.utils.transforms import DecodeTarget
 import matplotlib.pyplot as plt
+from TnT.utils.transforms import DecodeVessel
 from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
 from accelerate import Accelerator
 from TnT.model.stage2 import TnTS2Loss
@@ -51,8 +51,8 @@ class AccelTrainer():
             for batch in tqdm.tqdm(train_dl, desc='Training batches', disable=not accel.is_main_process):
                 self.optim.zero_grad()
                 with accel.autocast():
-                    lat, loc_a, loc_v = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                    l = loss(lat, loc_a, loc_v, batch['location'])
+                    lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                    l = loss(lat, loc_a, loc_v, batch['location_v'], batch['location_a'], batch['laterality'])
                 accel.backward(l)
                 self.optim.step()
                 loss_history.add_train(accel.gather(l).mean())
@@ -62,8 +62,8 @@ class AccelTrainer():
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches', disable=not accel.is_main_process):
                     with accel.autocast():
-                        lat, loc_a, loc_v = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                        l = loss(lat, loc_a, loc_v, batch['location'])
+                        lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                        l = loss(lat, loc_a, loc_v, batch['location_v'], batch['location_a'], batch['laterality'])
                     loss_history.add_val(accel.gather(l).mean())
             
             ## scheduling
@@ -102,7 +102,7 @@ class AccelTrainer():
         model.load(wdir/f'best_val_loss')
         return model
                 
-    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeTarget()):
+    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeVessel()):
         if best_model_dir is not None:
             model.load(best_model_dir)
         model.to(self.device)
@@ -112,8 +112,8 @@ class AccelTrainer():
         ids = []
         for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
             ids += batch['id']
-            gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
-            pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+            gts.append(torch.concat([batch['location_v'], batch['laterality']], dim=-1))
+            pred_lat, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], target='vessel')
             pred_lat=pred_lat.detach().to('cpu')
             pred_loc_v=pred_loc_v.detach().to('cpu')
             preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))

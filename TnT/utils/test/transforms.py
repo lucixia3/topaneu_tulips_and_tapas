@@ -148,9 +148,7 @@ def test_random_resample_transform():
 
 def test_all_transforms():
     testsample = load_test_sample()
-    test_aneu_label_transform()
-    test_vessel_label_transform()
- 
+    test_label_transforms()
     test_to_tensor_transform()
     test_resize_transform()
     test_adanorm_transform()
@@ -163,29 +161,19 @@ def test_all_transforms():
     test_resample_transform()
     test_random_resample_transform()
 
-def test_aneu_label_transform():
-    encoder = LateralityInvariance()
-    decoder = DecodeTarget()
-    
-    for i in range(51):
+def test_label_transforms():
+    encoder = LabelEncoder()
+    vdec = DecodeVessel()
+    adec = DecodeAneu()
         
-        enc = np.array(encoder(i))
-        
-        dec = decoder(enc)
-        
-        print(f'Testing Aneu encoding/decoding: input={i}; output={dec}; Success={i==dec[-1]}')
-        
-def test_vessel_label_transform():
-    encoder = LateralityInvarianceForVessels()
-    decoder = DecodeTargetForVessels()
-    
-    for i in range(37):
-        
-        enc = np.array(encoder(i))
-        
-        dec = decoder(enc)
-        
-        print(f'Testing Vessel encoding/decoding: input={i}; output={dec}; Success={i==dec[-1]}')
-        
-if __name__ == '__main__':
-    test_aneu_label_transform()
+    ### testing for aneu and vessel
+    for i in range(0, 53):
+        for j in range(0, 2):
+            enc = encoder({'location_v': [j], 'location_a': i})
+            dec_a = adec(np.concat([enc['location_a'], enc['laterality']]))
+            print(f'Testing Aneu encoding/decoding: Aneu Success = {i==dec_a[-1]}')
+            
+    for i in range(0, 37):
+            enc = encoder({'location_v': [i], 'location_a': None})
+            dec_v = vdec(np.concat([enc['location_v'], enc['laterality']]))
+            print(f'Testing Vessel encoding/decoding: Vessel Success = {i==dec_v[-1]}')

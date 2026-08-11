@@ -2,7 +2,6 @@ from torch.utils.data import DataLoader, Dataset
 from pathlib import Path
 import os, tqdm, SimpleITK as sitk, json, numpy as np, random, torch, copy
 from scipy.ndimage import label, binary_erosion
-from TnT.utils.transforms import LateralityInvariance, LateralityInvarianceForVessels
 from pprint import pprint
 
 class TopAneuDS(Dataset):
@@ -67,7 +66,6 @@ class TopAneu_TnTs2_DS(Dataset):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
         self.aneus = []
         self.transforms = transforms
-        self.encode_location = LateralityInvariance()
         self.patch_size_mm = patch_size_mm
         
     def __len__(self):
@@ -97,7 +95,8 @@ class TopAneu_TnTs2_DS(Dataset):
         
         dct = {
             'image': multichannel_img,
-            'location': smp['location'], # multihot
+            'location_v': [lbl for lbl in np.unique(multichannel_img[2]).tolist() if lbl != 0],
+            'location_a': smp['location'], # multihot
             'coords': np.array(coords_in_vbb, dtype=int)/np.array(smp['vbb.shape'], dtype=int), # relative
             'modality': smp['modality'], # string
             'id': img_smp['id'],
@@ -197,7 +196,7 @@ class TopAneu_TnTs2_DS(Dataset):
             smp = {
                     'idx': i, # the base image idx in the base dataset
                     'coords': seed.tolist(), # the centroid
-                    'location': self.encode_location(0),
+                    'location': 0,
                     'modality': img_smp['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
                     'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
@@ -247,7 +246,7 @@ class TopAneu_TnTs2_DS(Dataset):
                 smp = {
                     'idx': i, # the base image idx in the base dataset
                     'coords': np.mean(np.argwhere(cc==obj), axis=0).tolist(), # the centroid
-                    'location': self.encode_location(np.median(sample['location_mask'][cc==obj])),
+                    'location': np.median(sample['location_mask'][cc==obj]),
                     'modality': sample['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
                     'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
@@ -340,7 +339,6 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
         self.aneus = []
         self.transforms = transforms
-        self.encode_location = LateralityInvarianceForVessels()
         self.patch_size_mm = patch_size_mm
         
     def __len__(self):
@@ -369,7 +367,8 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
         
         dct = {
             'image': multichannel_img,
-            'location': smp['location'], # multihot
+            'location_v': [smp['location']], # multihot
+            'location_a': None,
             'coords': np.array(coords_in_vbb, dtype=int)/np.array(smp['vbb.shape'], dtype=int), # relative
             'modality': smp['modality'], # string
             'id': img_smp['id'],
@@ -498,7 +497,7 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
                     smp = {
                         'idx': i, # the base image idx in the base dataset
                         'coords': seed.tolist(), # the centroid
-                        'location': self.encode_location(vc),
+                        'location': vc,
                         'modality': sample['modality'],
                         'vbb': [vbb_d, vbb_h, vbb_w],
                         'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],

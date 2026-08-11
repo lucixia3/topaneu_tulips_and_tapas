@@ -3,7 +3,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn.functional import cross_entropy, binary_cross_entropy, softmax
 from pathlib import Path
 import os, tqdm, torch, numpy as np, shutil, datetime, json
-from TnT.utils.transforms import DecodeTarget
+from TnT.utils.transforms import DecodeAneu
 import matplotlib.pyplot as plt
 from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
 
@@ -45,7 +45,7 @@ class BasicTrainer():
             model.train()
             for batch in tqdm.tqdm(train_dl, desc='Training batches'):
                 self.optim.zero_grad()
-                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'])
+                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'], batch['location_a'], batch['laterality'])
                 l.backward()
                 self.optim.step()
                 loss_history.add_train(l)
@@ -54,7 +54,7 @@ class BasicTrainer():
             model.eval()
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
-                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location'])
+                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'], batch['location_a'], batch['laterality'])
                     loss_history.add_val(l)
             
             ## scheduling
@@ -87,7 +87,7 @@ class BasicTrainer():
         model.load(wdir/f'best_val_loss')
         return model
                 
-    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeTarget()):
+    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeAneu()):
         if best_model_dir is not None:
             model.load(best_model_dir)
         model.to(self.device)
@@ -97,18 +97,11 @@ class BasicTrainer():
         ids = []
         for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
             ids += batch['id']
-            try: # if its model.stage2_dev
-                pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                pred_lat=pred_lat.detach().to('cpu')
-                pred_loc_v=pred_loc_v.detach().to('cpu')
-                preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))
-                gts.append(torch.concat([batch['location']['vessel'], batch['location']['laterality']], dim=-1))
-            except: # if its model.stage2
-                pred_lat, pred_loc  = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                pred_lat=pred_lat.detach().to('cpu')
-                pred_loc=pred_loc.detach().to('cpu')
-                preds.append(torch.concat([pred_loc, pred_lat], dim=-1))
-                gts.append(torch.concat([batch['location']['aneurysm'], batch['location']['laterality']], dim=-1))
+            pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], target='aneu')
+            pred_lat=pred_lat.detach().to('cpu')
+            pred_loc_v=pred_loc_v.detach().to('cpu')
+            preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))
+            gts.append(torch.concat([batch['location_v'], batch['laterality']], dim=-1))
         
         preds = torch.concat(preds, dim=0).to(torch.uint8)  
         preds_dec = decoder(preds)
