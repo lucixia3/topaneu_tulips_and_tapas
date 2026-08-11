@@ -38,9 +38,9 @@ class LabelEncoder():
                 for i, pres in enumerate(v):
                     if pres==1: vessel[i]=1
             
-        dct['location_a'] = np.asarray(aneu)
-        dct['location_v'] = np.asarray(vessel)
-        dct['laterality'] = np.asarray(lat)
+        dct['location_a'] = np.asarray(aneu, dtype=np.float32)
+        dct['location_v'] = np.asarray(vessel, dtype=np.float32)
+        dct['laterality'] = np.asarray(lat, dtype=np.float32)
         
         return dct
 

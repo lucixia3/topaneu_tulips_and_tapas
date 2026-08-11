@@ -4,7 +4,6 @@ import os, datetime, torch
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate_dev, DataLoader
 from TnT.utils.transforms import get_train_test_transforms,  Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
-from TnT.trainer.n_fold import NFoldTrainer
 from TnT.trainer.base import BasicTrainer
 from monai.transforms import (
     RandAffined,
@@ -25,7 +24,7 @@ from monai.transforms import (
 if __name__ == '__main__':
     PATCH_SIZE_VX = 64 # to avoid oom error on local
     BATCH_SIZE = 4
-    EARLY_STOP_PATCHING = False
+    EARLY_STOP_PATCHING = 5
     
     ## Do splits
     # ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")

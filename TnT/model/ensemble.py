@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import pathlib as pl
 import datetime
 import os
-from TnT.utils.transforms import LateralityInvariance
 from TnT.model.stage2 import TnTS2
 
 from monai.networks.nets import resnet50#, resnet18
