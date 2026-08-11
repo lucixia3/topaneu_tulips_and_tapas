@@ -86,6 +86,7 @@ class TnTS2(nn.Module):
         return model
         
     def freeze(self):
+        return
         for param in self.bb.parameters():
             param.requires_grad = False
         for param in self.location_vessel.parameters():
