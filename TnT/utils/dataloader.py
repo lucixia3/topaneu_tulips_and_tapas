@@ -335,29 +335,41 @@ class TopAneu_TnTs2_DS(Dataset):
     
 class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
     ########################### builtins
-    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50):
+    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50, wdir=None):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
         self.aneus = []
         self.transforms = transforms
         self.patch_size_mm = patch_size_mm
+        self.wdir = wdir
         
     def __len__(self):
         return len(self.aneus)
     
     def __getitem__(self, idx):
+        if self.wdir is not None: 
+            self.wdir = Path(self.wdir)
+            os.makedirs(self.wdir, exist_ok=True)
         if not self.is_patched: self.preprocess()
         smp = self.aneus[idx]
-        img_smp = self.image_ds[smp['idx']]
         
-        multichannel_img = np.stack( # 4D array: [C, H, D, W]
-            [
-                self._center_crop(img_smp['image'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
-                self._center_crop(img_smp['location_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
-                self._center_crop(img_smp['vessel_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm)
-            ], axis=0
-        )
+        if os.path.exists(self.wdir/f"{idx}.npy") and self.wdir is not None:
+            multichannel_img = np.load(self.wdir/f"{idx}.npy")
         
-        multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
+        else:
+            img_smp = self.image_ds[smp['idx']]
+            
+            multichannel_img = np.stack( # 4D array: [C, H, D, W]
+                [
+                    self._center_crop(img_smp['image'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
+                    self._center_crop(img_smp['location_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
+                    self._center_crop(img_smp['vessel_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm)
+                ], axis=0
+            )
+            
+            multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
+            
+            if self.wdir is not None:
+                np.save(self.wdir/f"{idx}.npy", multichannel_img)
         
         coords_in_vbb = [
             smp['coords'][0]-smp['vbb'][0][0],
