@@ -48,7 +48,7 @@ class BasicTrainer():
                 if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                 else: 
                     lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                    l = loss(lat, loc_a, loc_v, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                    l = loss(lat, loc_v, loc_a, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                 l.backward()
                 self.optim.step()
                 loss_history.add_train(l)
@@ -60,7 +60,7 @@ class BasicTrainer():
                     if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                     else: 
                         lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                        l = loss(lat, loc_a, loc_v, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                        l = loss(lat, loc_v, loc_a, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                     loss_history.add_val(l)
             
             ## scheduling

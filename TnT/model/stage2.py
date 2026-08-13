@@ -103,7 +103,9 @@ class TnTS2Loss(nn.Module): ## intended for use with the accelerator so here the
         self.n_locs_v = n_locs_v
         self.n_locs_a = n_locs_a
         
-    def forward(self, lat, loc_v, loc_a, targets_v, targets_a, targets_lat):        
+    def forward(self, lat, loc_v, loc_a, targets_v, targets_a, targets_lat):   
+        print(targets_v.shape, targets_v)
+        print(loc_v.shape, loc_v)     
         loc_v_loss = F.cross_entropy(loc_v, targets_v)
         lat_loss = F.cross_entropy(lat, targets_lat)
         loc_a_loss = F.binary_cross_entropy_with_logits(loc_a, targets_a)

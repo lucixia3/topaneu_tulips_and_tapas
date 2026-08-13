@@ -52,7 +52,7 @@ class AccelTrainer():
                 self.optim.zero_grad()
                 with accel.autocast():
                     lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                    l = loss(lat, loc_a, loc_v, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                    l = loss(lat, loc_v, loc_a, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                 accel.backward(l)
                 self.optim.step()
                 loss_history.add_train(accel.gather(l).mean())
@@ -63,7 +63,7 @@ class AccelTrainer():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches', disable=not accel.is_main_process):
                     with accel.autocast():
                         lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
-                        l = loss(lat, loc_a, loc_v, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                        l = loss(lat, loc_v, loc_a, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                     loss_history.add_val(accel.gather(l).mean())
             
             ## scheduling
