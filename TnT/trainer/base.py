@@ -29,7 +29,7 @@ class BasicTrainer():
             f.write(f"Train Transforms: {train_dl.dataset.transforms}\n")
             f.write(f"Val Transforms: {val_dl.dataset.transforms}\n")
         
-    def train(self, model, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y'))):
+    def train(self, model, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y')), loss=None):
         os.makedirs(wdir)
         self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir)
         model.to(self.device)
@@ -45,7 +45,10 @@ class BasicTrainer():
             model.train()
             for batch in tqdm.tqdm(train_dl, desc='Training batches'):
                 self.optim.zero_grad()
-                l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                else: 
+                    lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                    l = loss(lat, loc_a, loc_v, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                 l.backward()
                 self.optim.step()
                 loss_history.add_train(l)
@@ -54,7 +57,10 @@ class BasicTrainer():
             model.eval()
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
-                    l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                    if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                    else: 
+                        lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
+                        l = loss(lat, loc_a, loc_v, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                     loss_history.add_val(l)
             
             ## scheduling
