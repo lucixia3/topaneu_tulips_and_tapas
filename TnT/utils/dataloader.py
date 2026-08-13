@@ -246,7 +246,7 @@ class TopAneu_TnTs2_DS(Dataset):
                 smp = {
                     'idx': i, # the base image idx in the base dataset
                     'coords': np.mean(np.argwhere(cc==obj), axis=0).tolist(), # the centroid
-                    'location': np.median(sample['location_mask'][cc==obj]),
+                    'location': int(np.median(sample['location_mask'][cc==obj])),
                     'modality': sample['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
                     'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
@@ -497,7 +497,7 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
             vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
             vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
             
-            vessel_cls = np.unique(vessel_mask)
+            vessel_cls = np.unique(vessel_mask).tolist()
             
             for vc in vessel_cls:
                 if vc==0:continue # skip bg
@@ -509,7 +509,7 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
                     smp = {
                         'idx': i, # the base image idx in the base dataset
                         'coords': seed.tolist(), # the centroid
-                        'location': vc,
+                        'location': int(vc),
                         'modality': sample['modality'],
                         'vbb': [vbb_d, vbb_h, vbb_w],
                         'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
