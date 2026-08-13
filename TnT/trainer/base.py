@@ -87,7 +87,7 @@ class BasicTrainer():
         model.load(wdir/f'best_val_loss')
         return model
                 
-    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeAneu()):
+    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeAneu(), target='aneu'):
         if best_model_dir is not None:
             model.load(best_model_dir)
         model.to(self.device)
@@ -97,13 +97,14 @@ class BasicTrainer():
         ids = []
         for batch in tqdm.tqdm(test_dl, desc='Testing batches'):
             ids += batch['id']
-            pred_lat, pred_loc_a, pred_loc_v = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], target='aneu')
+            pred_lat, pred_loc = model.classify(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], target=target)
             pred_lat=pred_lat.detach().to('cpu')
-            pred_loc_v=pred_loc_v.detach().to('cpu')
-            preds.append(torch.concat([pred_loc_v, pred_lat], dim=-1))
-            gts.append(torch.concat([batch['location_v'], batch['laterality']], dim=-1))
+            pred_loc=pred_loc.detach().to('cpu')
+            preds.append(torch.concat([pred_loc, pred_lat], dim=-1))
+            if target == 'vessel': gts.append(torch.concat([batch['location_v'], batch['laterality']], dim=-1))
+            else:  gts.append(torch.concat([batch['location_a'], batch['laterality']], dim=-1))
         
-        preds = torch.concat(preds, dim=0).to(torch.uint8)  
+        preds = torch.concat(preds, dim=0).to(torch.uint8) 
         preds_dec = decoder(preds)
         gts = torch.concat(gts, dim=0).to(torch.uint8) 
         gts_dec = decoder(gts)
