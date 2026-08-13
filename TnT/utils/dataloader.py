@@ -605,14 +605,18 @@ def TnTs2_collate(batch):
     # Assumes all data is already a tensor, if not will attempt to cast to tensor
     images = []
     coords = []
-    locations = []
+    locations_a = []
+    locations_v = []
+    lats = []
     modalities = []
     ids = []
     vlocs = []
     for sample in batch:
         images.append(sample['image'])
         coords.append(sample['coords'])
-        locations.append(sample['location'])
+        locations_a.append(sample['location_a'])
+        locations_v.append(sample['location_v'])
+        lats.append(sample['laterality'])
         modalities.append(sample['modality'])
         ids.append(sample['id'])
         if "vloc" in sample.keys(): vlocs.append(sample["vloc"])
@@ -620,35 +624,9 @@ def TnTs2_collate(batch):
     return {
         'image': torch.stack(images, dim=0),
         'coords': torch.stack(coords, dim=0),
-        'location': {'aneurysm': torch.stack(locations, dim=0)},
-        'modality': modalities, # just a basic list
-        'id': ids, # just a basic list
-        "vloc": torch.stack(vlocs, dim=0) if any(vlocs) else None
-    }
-
-def TnTs2_collate_dev(batch):
-    # Assumes all data is already a tensor, if not will attempt to cast to tensor
-    images = []
-    coords = []
-    locations = []
-    modalities = []
-    ids = []
-    vlocs = []
-    for sample in batch:
-        images.append(sample['image'])
-        coords.append(sample['coords'])
-        locations.append(sample['location'])
-        modalities.append(sample['modality'])
-        ids.append(sample['id'])
-        if "vloc" in sample.keys(): vlocs.append(sample["vloc"])
-    parsed = {} 
-    for k in locations[0].keys():
-        parsed[k] = torch.stack([loc[k] for loc in locations], dim=0)
-        
-    return {
-        'image': torch.stack(images, dim=0),
-        'coords': torch.stack(coords, dim=0),
-        'location': parsed,
+        'location_a': torch.stack(locations_a, dim=0),
+        'location_v': torch.stack(locations_v, dim=0),
+        'laterality': torch.stack(lats, dim=0),
         'modality': modalities, # just a basic list
         'id': ids, # just a basic list
         "vloc": torch.stack(vlocs, dim=0) if any(vlocs) else None
