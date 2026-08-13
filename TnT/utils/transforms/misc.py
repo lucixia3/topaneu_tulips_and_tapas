@@ -105,7 +105,7 @@ class BinarizeAneuChannel():
     
 class MaybeToTensor():
     def __init__(self, dtype=torch.float32):
-        self.convertable = ['image', 'location_mask', 'coords', 'vessel_mask', 'type_mask', 'location_a', 'location_v']
+        self.convertable = ['image', 'location_mask', 'coords', 'vessel_mask', 'type_mask', 'location_a', 'location_v', 'laterality']
         self.dtype = dtype
         
     def __call__(self, dct):
