@@ -24,7 +24,7 @@ from monai.transforms import (
 if __name__ == '__main__':
     PATCH_SIZE_VX = 64 # to avoid oom error on local
     BATCH_SIZE = 4
-    EARLY_STOP_PATCHING = 5
+    EARLY_STOP_PATCHING = False
     
     ## Do splits
     # ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")
@@ -42,18 +42,21 @@ if __name__ == '__main__':
         train.preprocess(include_bg=0.2, max_items=1 if EARLY_STOP_PATCHING else -1)
         train.save('tuning-train.json')
     else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms)
+    train.wdir = 'tuning-train'
     
     if not os.path.exists('tuning-val.json'):
         val = TopAneu_TnTs2_DS.load('val.json', transforms)
         val.preprocess(max_items=1 if EARLY_STOP_PATCHING else -1)
         val.save('tuning-val.json')
     else: val = TopAneu_TnTs2_DS.load('tuning-val.json', transforms)
+    val.wdir = 'tuning-val'
     
     if not os.path.exists('tuning-test.json'):
         test = TopAneu_TnTs2_DS.load('test.json', transforms)
         test.preprocess(max_items=1 if EARLY_STOP_PATCHING else -1)
         test.save('tuning-test.json')
     else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
+    test.wdir = 'tuning-test'
     
     ## PrEP DL
     #train.append(val)
@@ -64,7 +67,6 @@ if __name__ == '__main__':
     ## setup objs
     trainer = BasicTrainer()
     model = TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
-    # model = TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/15_epochs', *LateralityInvariance.get_n_locs_lats())
     
     # ## train or load
     model = trainer.train(model, train_dl, val_dl, 10, 5)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)

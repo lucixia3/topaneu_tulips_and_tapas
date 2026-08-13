@@ -62,30 +62,47 @@ class TopAneuDS(Dataset):
     
 class TopAneu_TnTs2_DS(Dataset):
     ########################### builtins
-    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50):
+    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50, wdir=None):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
         self.aneus = []
         self.transforms = transforms
         self.patch_size_mm = patch_size_mm
+        self.wdir = wdir
         
     def __len__(self):
         return len(self.aneus)
     
     def __getitem__(self, idx):
+        if self.wdir is not None: 
+            self.wdir = Path(self.wdir)
+            os.makedirs(self.wdir, exist_ok=True)
         if not self.is_patched: self.preprocess()
         smp = self.aneus[idx]
-        img_smp = self.image_ds[smp['idx']]
         
-        multichannel_img = np.stack( # 4D array: [C, H, D, W]
-            [
-                self._center_crop(img_smp['image'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
-                self._center_crop(img_smp['location_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
-                self._center_crop(img_smp['vessel_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm)
-            ], axis=0
-        )
+        if os.path.exists(self.wdir/f"{idx}.npy") and self.wdir is not None:
+            multichannel_img = np.load(self.wdir/f"{idx}.npy")
+            with open(self.wdir/f"{idx}.json", 'r') as f:
+                img_smp = json.load(f)
         
-        if smp['location']==0: # if it is one the bg patches need to gen a random sphere
-            multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
+        else:
+            img_smp = self.image_ds[smp['idx']]
+            
+            
+            multichannel_img = np.stack( # 4D array: [C, H, D, W]
+                [
+                    self._center_crop(img_smp['image'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
+                    self._center_crop(img_smp['location_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm),
+                    self._center_crop(img_smp['vessel_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm)
+                ], axis=0
+            )
+            
+            if smp['location']==0: # if it is one the bg patches need to gen a random sphere
+                multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
+                
+            if self.wdir is not None:
+                np.save(self.wdir/f"{idx}.npy", multichannel_img)
+                with open(self.wdir/f"{idx}.json", 'w') as f:
+                    json.dump({'id': img_smp['id'], 'spacing': img_smp['spacing']}, f, indent=4)
         
         coords_in_vbb = [
             smp['coords'][0]-smp['vbb'][0][0],
@@ -209,7 +226,9 @@ class TopAneu_TnTs2_DS(Dataset):
     def _put_random_sphere_as_aneu(self, img, spacing):
         diameter_in_mm = random.choice(np.arange(2, 10.5, 0.25)) # generates a random aneurysm diameter in mms
         diameter = max(spacing)*diameter_in_mm # converts into voxels bit lossy though since the spacing is non isometric, yielding basically an odd shape
-        diameter = min(min(img.shape), round(diameter))
+        diameter = min(min(img.shape if len(img.shape)<4 else img.shape[1:]), round(diameter))
+        diameter = max(diameter, 1)
+        
         obj = np.zeros((diameter, diameter, diameter), dtype=bool)
         radius = diameter / 2
         center = (diameter - 1) / 2  # e.g. for diameter=3: center=1.0
@@ -220,10 +239,14 @@ class TopAneu_TnTs2_DS(Dataset):
         obj[dist_sq <= radius**2] = True
         obj = obj.astype(np.uint8)
         size_sph = obj.shape
-        center = [round(s/2) for s in img.shape[1:]]
-        lowers = [c-round(s) for c, s in zip(center, size_sph)]
-    
-        img[1, lowers[0]:lowers[0]+size_sph[0], lowers[1]:lowers[1]+size_sph[1], lowers[2]:lowers[2]+size_sph[2]] = obj
+        center = [s//2 for s in img.shape[1:]]
+        lowers = [max(0, min(c - s // 2, img.shape[1:][i] - s))
+              for i, (c, s) in enumerate(zip(center, size_sph))]
+
+        img[1,
+            lowers[0]:lowers[0]+size_sph[0],
+            lowers[1]:lowers[1]+size_sph[1],
+            lowers[2]:lowers[2]+size_sph[2]] = obj
         return img
     
     ###########################
@@ -354,6 +377,8 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
         
         if os.path.exists(self.wdir/f"{idx}.npy") and self.wdir is not None:
             multichannel_img = np.load(self.wdir/f"{idx}.npy")
+            with open(self.wdir/f"{idx}.json", 'r') as f:
+                img_smp = json.load(f)
         
         else:
             img_smp = self.image_ds[smp['idx']]
@@ -370,6 +395,8 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
             
             if self.wdir is not None:
                 np.save(self.wdir/f"{idx}.npy", multichannel_img)
+                with open(self.wdir/f"{idx}.json", 'w') as f:
+                    json.dump({'id': img_smp['id'], 'spacing': img_smp['spacing']}, f, indent=4)
         
         coords_in_vbb = [
             smp['coords'][0]-smp['vbb'][0][0],
