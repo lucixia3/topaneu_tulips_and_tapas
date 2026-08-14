@@ -1,8 +1,8 @@
 from pprint import pprint
 from pathlib import Path
 import os, datetime, torch
-from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate_dev, DataLoader
-from TnT.utils.transforms import get_train_test_transforms, DecodeAneu,  Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
+from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
+from TnT.utils.transforms import get_train_test_transforms, DecodeAneu, DecodeVessel, Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
 from TnT.trainer.base import BasicTrainer
 from monai.transforms import (
@@ -60,17 +60,20 @@ if __name__ == '__main__':
     
     ## PrEP DL
     #train.append(val)
-    train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
-    val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
-    test_dl = DataLoader(test, batch_size=1, shuffle=False)
+    train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    test_dl = DataLoader(test, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
     
     ## setup objs
     trainer = BasicTrainer()
     model = TnTS2()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
-    model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-10:39:09-13.08.26/best_val_loss')
-    # ## train or load
-    #model = trainer.train(model, train_dl, val_dl, 10, 5)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
+    
+    ## train or load
+    #model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
 
     ## QnD test
-    print('#'*20, 'Testing ACC', '#'*20)
+    print('#'*20, 'Testing ACC for Aneu', '#'*20)
     acc = trainer.test(model, test_dl, decoder=DecodeAneu(), target='aneu')
+    print('#'*20, 'Testing ACC for Vessel', '#'*20)
+    acc = trainer.test(model, test_dl, decoder=DecodeVessel(), target='vessel')

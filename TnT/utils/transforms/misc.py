@@ -22,6 +22,15 @@ from monai.transforms import (
 from monai.data import MetaTensor
 from scipy.ndimage import binary_dilation, binary_erosion, grey_dilation, grey_erosion, generate_binary_structure
 
+def get_inference_transforms(patch_size_vx):
+    return Compose([
+            MaybeToTensor(),
+            MaybeResize(size=patch_size_vx),
+            BinarizeAneuChannel(),
+            BinarizeVesselChannel(),
+            AdaNorm.make(),
+        ])
+
 def get_train_test_transforms(patch_size_vx):
     test_transforms = Compose([
         LabelEncoder(),

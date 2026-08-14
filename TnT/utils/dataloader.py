@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader, Dataset
 from pathlib import Path
 import os, tqdm, SimpleITK as sitk, json, numpy as np, random, torch, copy
-from scipy.ndimage import label, binary_erosion
+from scipy.ndimage import label, binary_erosion, binary_dilation
 from pprint import pprint
 
 class TopAneuDS(Dataset):
@@ -98,11 +98,20 @@ class TopAneu_TnTs2_DS(Dataset):
             
             if smp['location']==0: # if it is one the bg patches need to gen a random sphere
                 multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
+            
+            # get the associated vloc
+            if np.any(multichannel_img[2]!=0):
+                msk = np.bitwise_and(binary_dilation(multichannel_img[2]!=0), binary_dilation(multichannel_img[1]!=0))
+                if np.any(msk): vessel_id = np.median(multichannel_img[2][msk].astype(np.uint8))
+                else: vessel_id = np.median(multichannel_img[2][multichannel_img[2]!=0].astype(np.uint8))
+            else: vessel_id = 0
+            
+            img_smp['vloc']= vessel_id
                 
             if self.wdir is not None:
                 np.save(self.wdir/f"{idx}.npy", multichannel_img)
                 with open(self.wdir/f"{idx}.json", 'w') as f:
-                    json.dump({'id': img_smp['id'], 'spacing': img_smp['spacing']}, f, indent=4)
+                    json.dump({'id': img_smp['id'], 'spacing': img_smp['spacing'], 'vloc': vessel_id}, f, indent=4)
         
         coords_in_vbb = [
             smp['coords'][0]-smp['vbb'][0][0],
@@ -110,9 +119,11 @@ class TopAneu_TnTs2_DS(Dataset):
             smp['coords'][2]-smp['vbb'][2][0]
         ]
         
+
+        
         dct = {
             'image': multichannel_img,
-            'location_v': [lbl for lbl in np.unique(multichannel_img[2]).tolist() if lbl != 0],
+            'location_v': [img_smp['vloc']],
             'location_a': smp['location'], # multihot
             'coords': np.array(coords_in_vbb, dtype=int)/np.array(smp['vbb.shape'], dtype=int), # relative
             'modality': smp['modality'], # string

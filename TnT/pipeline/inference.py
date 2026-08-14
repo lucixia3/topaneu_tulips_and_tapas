@@ -1,4 +1,4 @@
-from TnT.utils.transforms import get_train_test_transforms, DecodeTarget
+from TnT.utils.transforms import get_inference_transforms, DecodeAneu
 from TnT.utils.dataloader import TopAneu_TnTs2_DS
 import SimpleITK as sitk, numpy as np, torch
 from scipy.ndimage import label
@@ -7,8 +7,8 @@ class InferencePipeline():
     def __init__(self, model, patch_size_vx=64, patch_size_mm=35, device='cuda'):
         self.s2_model = model
         self.patch_size_mm = patch_size_mm
-        _, self.s2_transforms = get_train_test_transforms(patch_size_vx)
-        self.decoder = DecodeTarget()
+        self.s2_transforms = get_inference_transforms(patch_size_vx)
+        self.decoder = DecodeAneu()
         self.device = device
         self.s2_model.to(self.device)
         self.s2_model.eval()
