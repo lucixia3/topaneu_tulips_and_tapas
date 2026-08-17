@@ -44,10 +44,10 @@ class NFoldTrainer():
         for hold_out_fold in range(0, self.n):
             fold_wdir = wdir/f"fold_{hold_out_fold}"
             val_ds = folds[hold_out_fold]
-            val_ds.wdir = ds.wdir/f"val_fold_{hold_out_fold}" if ds.wdir is not None else None
+            val_ds.wdir = Path(ds.wdir)/f"val_fold_{hold_out_fold}" if ds.wdir is not None else None
             val_ds.transforms = val_trans
             train_ds = TopAneu_TnTs2_DS.join([f for i, f in enumerate(folds) if i!=hold_out_fold])
-            train_ds.wdir = ds.wdir/f"trn_fold_{hold_out_fold}" if ds.wdir is not None else None
+            train_ds.wdir = Path(ds.wdir)/f"trn_fold_{hold_out_fold}" if ds.wdir is not None else None
             train_ds.transforms = train_trans
             cur_trainer = self.trainer(self.lr, self.optim, self.sched, self.device)
             best_model = cur_trainer.train(model=copy.deepcopy(model), train_dl=DataLoader(train_ds, batch_size=self.bs, shuffle=True, collate_fn=TnTs2_collate), val_dl=DataLoader(val_ds, self.bs, shuffle=True, collate_fn=TnTs2_collate), epochs=epochs, early_stop=early_stop, wdir=fold_wdir, use_aneu_class_balancing=use_aneu_class_balancing)
