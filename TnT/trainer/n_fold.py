@@ -54,7 +54,7 @@ class NFoldTrainer():
         ensemble.save(wdir/'final_ensemble', overwrite=True)
         return ensemble
     
-    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeTarget()):
+    def test(self, model, test_dl, best_model_dir=None, decoder=None):
         if best_model_dir is not None:
             model.load(best_model_dir)
         model.to(self.device)
