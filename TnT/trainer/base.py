@@ -6,6 +6,7 @@ import os, tqdm, torch, numpy as np, shutil, datetime, json
 from TnT.utils.transforms import DecodeAneu
 import matplotlib.pyplot as plt
 from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
+import TnT.trainer.class_weigths as cw
 
 
 class BasicTrainer():
@@ -15,7 +16,7 @@ class BasicTrainer():
         self.sched = sched
         self.device = device
         
-    def _save_train_cfg(self, model, train_dl, val_dl, epochs, early_stop, wdir):
+    def _save_train_cfg(self, model, train_dl, val_dl, epochs, early_stop, wdir, use_aneu_class_balancing):
         with open(wdir/'train_cfg.txt', 'w') as f:
             f.write(f"Model: {model}\n")
             f.write(f"Epochs: {epochs}\n")
@@ -26,12 +27,17 @@ class BasicTrainer():
             f.write(f"Optimizer: {self.optim}\n")
             f.write(f"Loss: model.loss function\n")
             f.write(f"Device: {self.device}\n")
+            f.write(f"Using Aneurysm Class weight balancing: {use_aneu_class_balancing}\n")
             f.write(f"Train Transforms: {train_dl.dataset.transforms}\n")
             f.write(f"Val Transforms: {val_dl.dataset.transforms}\n")
         
-    def train(self, model, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y')), loss=None):
+    def train(self, model, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y')), loss=None, use_aneu_class_balancing = False):
         os.makedirs(wdir)
-        self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir)
+        self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir, use_aneu_class_balancing)
+        if use_aneu_class_balancing:
+            ac_weights = torch.tensor(cw)
+        else:
+            ac_weights = None
         model.to(self.device)
         self.optim = self.optim(model.parameters(), self.lr)
         self.sched = self.sched(self.optim, epochs)
@@ -45,7 +51,7 @@ class BasicTrainer():
             model.train()
             for batch in tqdm.tqdm(train_dl, desc='Training batches'):
                 self.optim.zero_grad()
-                if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device), weights=ac_weights)
                 else: 
                     lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
                     l = loss(lat, loc_v, loc_a, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
@@ -57,7 +63,7 @@ class BasicTrainer():
             model.eval()
             with torch.no_grad():
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
-                    if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
+                    if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device), weights=ac_weights)
                     else: 
                         lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
                         l = loss(lat, loc_v, loc_a, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))

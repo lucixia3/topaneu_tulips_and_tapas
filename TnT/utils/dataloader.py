@@ -78,13 +78,15 @@ class TopAneu_TnTs2_DS(Dataset):
             os.makedirs(self.wdir, exist_ok=True)
         if not self.is_patched: self.preprocess()
         smp = self.aneus[idx]
+        multichannel_img = None
         
-        if os.path.exists(self.wdir/f"{idx}.npy") and self.wdir is not None:
-            multichannel_img = np.load(self.wdir/f"{idx}.npy")
-            with open(self.wdir/f"{idx}.json", 'r') as f:
-                img_smp = json.load(f)
+        if self.wdir is not None:
+            if os.path.exists(self.wdir/f"{idx}.npy"):
+                multichannel_img = np.load(self.wdir/f"{idx}.npy")
+                with open(self.wdir/f"{idx}.json", 'r') as f:
+                    img_smp = json.load(f)
         
-        else:
+        if multichannel_img is None:
             img_smp = self.image_ds[smp['idx']]
             
             
