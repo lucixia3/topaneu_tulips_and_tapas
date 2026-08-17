@@ -21,6 +21,7 @@ from monai.transforms import (
     NormalizeIntensity,
 )
 import numpy as np
+from TnT.utils.transforms.labeling import LAT_INV_ANEU
 
 if __name__ == '__main__':
     PATCH_SIZE_VX = 64 # to avoid oom error on local
@@ -39,13 +40,13 @@ if __name__ == '__main__':
     else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms)
     
     
-    cnt = np.zeros(53)
+    cnt = np.zeros(29)
     for i in tqdm.tqdm(range(len(train))):
-        cnt[train[i]['location_a']] += 1
+        cnt[LAT_INV_ANEU[train[i]['location_a']]] += 1
     
     print(cnt)
     cnt /= len(train)
     print(cnt, np.sum(cnt))
-    cnt = np.abs(cnt-1)
+    cnt = np.abs(cnt-1).tolist()
     print(cnt)
     np.save('/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnT/trainer/aneu_class_weights.npy', cnt)

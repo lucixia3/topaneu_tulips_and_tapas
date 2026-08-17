@@ -35,7 +35,7 @@ class BasicTrainer():
         os.makedirs(wdir)
         self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir, use_aneu_class_balancing)
         if use_aneu_class_balancing:
-            ac_weights = torch.tensor(cw)
+            ac_weights = torch.tensor(cw.ANEURYSM).to(self.device)
         else:
             ac_weights = None
         model.to(self.device)

@@ -70,7 +70,7 @@ if __name__ == '__main__':
     model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
     
     ## train or load
-    #model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=True)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
 
     ## QnD test
     print('#'*20, 'Testing ACC for Aneu', '#'*20)
