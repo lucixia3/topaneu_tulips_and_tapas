@@ -108,7 +108,7 @@ class TopAneu_TnTs2_DS(Dataset):
                 else: vessel_id = np.median(multichannel_img[2][multichannel_img[2]!=0].astype(np.uint8))
             else: vessel_id = 0
             
-            img_smp['vloc']= vessel_id
+            img_smp['vloc']= int(vessel_id)
                 
             if self.wdir is not None:
                 np.save(self.wdir/f"{idx}.npy", multichannel_img)
