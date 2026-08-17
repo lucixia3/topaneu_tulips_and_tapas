@@ -14,30 +14,33 @@ class Ensemble(nn.Module):
     Args:
         nn (_type_): _description_
     """
-    def __init__(self, n_locs, n_lats):
+    def __init__(self, n_locs_v=21, n_locs_a=29, n_lats=2):
         super().__init__()
-        self.n_locs, self.n_lats = n_locs, n_lats
+        self.n_locs_v, self.n_locs_a, self.n_lats = n_locs_v, n_locs_a, n_lats
         self.models = []
         
     def add(self, model):
-        assert model.n_locs == self.n_locs
+        assert model.n_locs_a == self.n_locs_a
+        assert model.n_locs_v == self.n_locs_v
         assert model.n_lats == self.n_lats
         self.models.append(model)
         
     def forward(self, patch, coords, modalities):
-        lats, locs = [], []
+        lats, locs_a, locs_v = [], [], []
         for m in self.models:
-            lat, loc = m(patch, coords, modalities)
+            lat, loc_v, loc_a = m(patch, coords, modalities)
             lats.append(lat)
-            locs.append(loc)
-        return lats, locs
+            locs_v.append(loc_v)
+            locs_a.append(loc_a)
+        return lats, locs_v, locs_a
     
-    def classify(self, patch, coords, modalities):
+    def classify(self, patch, coords, modalities, target='aneu'):
         unbatched = isinstance(modalities, str)
         if unbatched: raise RuntimeError("Unbatched data is not supported")
         lats, locs = [], []
         for m in self.models:
-            lat, loc = m(patch, coords, modalities)
+            if target == 'vessel': lat, loc, _ = m(patch, coords, modalities)
+            else: lat, _, loc = m(patch, coords, modalities)
             lat_sigmoid, loc_sigmoid = F.sigmoid(lat), F.sigmoid(loc)
             lats.append(lat_sigmoid)
             locs.append(loc_sigmoid)
