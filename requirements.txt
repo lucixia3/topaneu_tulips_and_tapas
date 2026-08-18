@@ -10,3 +10,4 @@ tqdm
 monai
 scikit-learn
 accelerate
+nnunetv2

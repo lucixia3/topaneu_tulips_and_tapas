@@ -34,19 +34,21 @@ if __name__ == '__main__':
     
     ## load splits
     if not os.path.exists('tuning-train.json'):
-        train = TopAneu_TnTs2_DS.load('train.json', train_transforms)
+        train = TopAneu_TnTs2_DS.load('train.json', None)
         train.preprocess(include_bg=0.2, max_items=1 if EARLY_STOP_PATCHING else -1)
         train.save('tuning-train.json')
-    else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms)
+    else: train = TopAneu_TnTs2_DS.load('tuning-train.json', None)
+    
+    AdaNorm.compute_mean_std(train.image_ds)
     
     
-    cnt = np.zeros(29)
-    for i in tqdm.tqdm(range(len(train))):
-        cnt[LAT_INV_ANEU[train[i]['location_a']]] += 1
+    # cnt = np.zeros(29)
+    # for i in tqdm.tqdm(range(len(train))):
+    #     cnt[LAT_INV_ANEU[train[i]['location_a']]] += 1
     
-    print(cnt)
-    cnt /= len(train)
-    print(cnt, np.sum(cnt))
-    cnt = np.abs(cnt-1).tolist()
-    print(cnt)
-    np.save('/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnT/trainer/aneu_class_weights.npy', cnt)
+    # print(cnt)
+    # cnt /= len(train)
+    # print(cnt, np.sum(cnt))
+    # cnt = np.abs(cnt-1).tolist()
+    # print(cnt)
+    # np.save('/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnT/trainer/aneu_class_weights.npy', cnt)

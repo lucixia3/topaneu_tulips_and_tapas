@@ -1,15 +1,22 @@
 from TnT.utils.transforms import get_inference_transforms, DecodeAneu
 from TnT.utils.dataloader import TopAneu_TnTs2_DS
+from TnT.model.stage2 import TnTS2
+from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 import SimpleITK as sitk, numpy as np, torch
 from scipy.ndimage import label
+from pathlib import Path
 
 class InferencePipeline():
-    def __init__(self, model, patch_size_vx=64, patch_size_mm=35, device='cuda'):
-        self.s2_model = model
+    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda'):
         self.patch_size_mm = patch_size_mm
         self.s2_transforms = get_inference_transforms(patch_size_vx)
         self.decoder = DecodeAneu()
         self.device = device
+        
+        ## the models
+        self.s2_model = TnTS2()
+        self.s2_model.load(s2_model_path)
+        if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path)
         self.s2_model.to(self.device)
         self.s2_model.eval()
     
@@ -17,13 +24,24 @@ class InferencePipeline():
     def __call__(self, sample: sitk.Image, modality: str):
         if isinstance(sample, sitk.Image):
             image, vmask, lmask = self._stage1(sample)
+            spacing = sample.GetSpacing()
         elif isinstance(sample, dict):
             image=sample['image']
             vmask=sample['vessel_mask']!=0
             lmask=sample['location_mask']!=0
+            spacing = sample['spacing']
+        elif isinstance(sample, str):
+            base = Path('/home/tue20260926/Data/TNT/s1/infersTs_altTrainer_best')
+            sample = Path(sample)
+            image = sitk.ReadImage(sample)
+            msk = sitk.GetArrayFromImage(sitk.ReadImage(base/sample.name.replace('_0000', '')))
+            spacing = image.GetSpacing()
+            image = sitk.GetArrayFromImage(image)
+            vmask = msk==1
+            lmask = msk==2
         
         if np.any(lmask):
-            s2ds = CaseDL(image, vmask, lmask, modality, self.s2_transforms, sample.GetSpacing() if isinstance(sample, sitk.Image) else sample['spacing'], self.patch_size_mm)
+            s2ds = CaseDL(image, vmask, lmask, modality, self.s2_transforms, spacing, self.patch_size_mm)
             for i in range(len(s2ds)):
                 smp = s2ds[i]
                 pred = self._stage2(smp)
@@ -37,8 +55,24 @@ class InferencePipeline():
             return outimg
         else: return output.astype(np.uint8)
         
-    def _stage1(self, sample: sitk.Image):
-        raise NotImplementedError('Needs to return a tuple of (\n   image: (as it was passed to the funciton, no mutations or transformations applied), \n    location_mask: (binary), \n    vessel_mask: (binary)\n)')
+    def _stage1(self, image: sitk.Image):
+        # nnU-Net expects numpy arrays shaped (channels, z, y, x)
+        img_array = sitk.GetArrayFromImage(image).astype(np.float32)  # (z, y, x)
+        img_array = img_array[np.newaxis, ...]  # -> (1, z, y, x)
+    
+        # sitk spacing is (x, y, z); nnU-Net wants (z, y, x)
+        nnunet_spacing = list(image.GetSpacing())[::-1]
+        props = {"spacing": nnunet_spacing}
+    
+        segmentation = self.s1_model.predict_single_npy_array(
+            img_array, props, None, None, False
+        ).astype(np.uint8)
+
+        vmask_arr = segmentation==1
+        lmask_arr = segmentation==2
+        
+        return img_array.squeeze(0), vmask_arr, lmask_arr
+        
     
     def _stage2(self, smp: dict) -> int:
         pred_lat, pred_loc = self.s2_model.classify(smp['image'].unsqueeze(0).to(self.device), smp['coords'].unsqueeze(0).to(self.device), [smp['modality']])
@@ -48,7 +82,26 @@ class InferencePipeline():
         assert len(preds.shape)==2, 'only implemented for batched data'
         decoded_label = self.decoder(preds)[0][2]
         return decoded_label
-        
+    
+    def _make_s1(self, path):
+        predictor = nnUNetPredictor(
+                    tile_step_size=0.5,
+                    use_gaussian=True,
+                    use_mirroring=True,
+                    perform_everything_on_device=True,
+                    device=torch.device(self.device),
+                    verbose=False,
+                    verbose_preprocessing=False,
+                    allow_tqdm=True,
+                )
+            
+        predictor.initialize_from_trained_model_folder(
+            path,
+            use_folds=(0,1,2,3,4,),
+            checkpoint_name="checkpoint_best.pth",
+        )
+        return predictor
+    
 class CaseDL(TopAneu_TnTs2_DS):
     def __init__(self, image, vmask, lmask, modality, transforms, spacing, patch_size_mm):
         self.image = image

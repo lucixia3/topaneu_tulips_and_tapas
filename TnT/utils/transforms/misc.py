@@ -25,25 +25,28 @@ from scipy.ndimage import binary_dilation, binary_erosion, grey_dilation, grey_e
 def get_inference_transforms(patch_size_vx):
     return Compose([
             MaybeToTensor(),
+            ClipCtaIntensities(),
             MaybeResize(size=patch_size_vx),
             BinarizeAneuChannel(),
             BinarizeVesselChannel(),
-            AdaNorm.make(),
+            AdaNorm.make(ct_clipped=True),
         ])
 
 def get_train_test_transforms(patch_size_vx):
     test_transforms = Compose([
         LabelEncoder(),
         MaybeToTensor(),
+        ClipCtaIntensities(),
         MaybeResize(size=patch_size_vx),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
-        AdaNorm.make(),
+        AdaNorm.make(ct_clipped=True),
     ])
     
     train_transforms = Compose([
         LabelEncoder(),
         MaybeToTensor(),
+        ClipCtaIntensities(),
         MaybeResize(patch_size_vx),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
@@ -85,7 +88,7 @@ def get_train_test_transforms(patch_size_vx):
             RandHistogramShift(prob=0.1, num_control_points=(3, 5)),
             apply_to=['image']
         ),
-        AdaNorm.make(),
+        AdaNorm.make(ct_clipped=True),
     ])
     
     return train_transforms, test_transforms
@@ -94,6 +97,16 @@ class BinarizeVessels():
     def __call__(self, dct):
         binarized = dct['vessel_mask']!=0
         dct['vessel_mask']=binarized.astype(np.uint8)
+        return dct
+    
+class ClipCtaIntensities():
+    def __init__(self, lower=-200, upper=800):
+        self.lower=lower
+        self.upper=upper
+        
+    def __call__(self, dct):
+        if dct['modality']=='CTA':
+            dct['image'][0] = torch.clip(dct['image'][0], self.lower, self.upper)
         return dct
     
 class BinarizeAneus():
@@ -174,8 +187,9 @@ class AdaNorm():
         return dct
     
     @staticmethod
-    def make():
-        return AdaNorm(311.7783241351976, 226.50190118254997, -125.36350339401929, 647.2861290527815)
+    def make(ct_clipped=True):
+        if ct_clipped: return AdaNorm(105.64747174811804, 128.1358337638573, 63.98932940740848, 279.77159725605)
+        else: return AdaNorm(105.64747174811804, 128.1358337638573, -111.44454449849296, 648.8878738938635)
     
     @staticmethod
     def compute_mean_std(dataset):
@@ -186,6 +200,10 @@ class AdaNorm():
         ct_total_sum = 0.0
         ct_total_sq_sum = 0.0
         ct_total_voxels = 0
+        
+        ct_clipped_sum = 0.0
+        ct_clipped_sq_sum = 0.0
+        ct_clipped_voxels = 0
 
         for idx in tqdm.tqdm(range(len(dataset)), 'Comp mean-std'):
             # if dataset returns (volume, mask) or dicts, adjust this line accordingly
@@ -200,18 +218,24 @@ class AdaNorm():
                 ct_total_sum += vol.sum().item()
                 ct_total_sq_sum += (vol ** 2).sum().item()
                 ct_total_voxels += vol.size
+                
+                vol = np.clip(vol, -200, 800)
+                ct_clipped_sum += vol.sum().item()
+                ct_clipped_sq_sum += (vol ** 2).sum().item()
+                ct_clipped_voxels += vol.size
             else: raise ValueError('Unkwown modality')
 
         mr_mean = mr_total_sum / mr_total_voxels
         mr_std = (mr_total_sq_sum / mr_total_voxels - mr_mean ** 2) ** 0.5
         
-        ct_mean = ct_total_sum / ct_total_voxels
-        ct_std = (ct_total_sq_sum / ct_total_voxels - ct_mean ** 2) ** 0.5
+        ct_tot_mean = ct_total_sum / ct_total_voxels
+        ct_tot_std = (ct_total_sq_sum / ct_total_voxels - ct_tot_mean ** 2) ** 0.5
+        
+        ct_clp_mean = ct_clipped_sum / ct_clipped_voxels
+        ct_clp_std = (ct_clipped_sq_sum / ct_clipped_voxels - ct_clp_mean ** 2) ** 0.5
 
         with open('mean-std_mr-ct.json', 'w') as f:
-            json.dump({'mr': {'mean':mr_mean, 'std':mr_std}, 'ct':{'mean':ct_mean, 'std': ct_std}}, f, indent=4)
-            
-        return mr_mean, mr_std, ct_mean, ct_std
+            json.dump({'mr': {'mean':mr_mean, 'std':mr_std}, 'ct_total':{'mean':ct_tot_mean, 'std': ct_tot_std}, 'ct_clipped':{'mean':ct_clp_mean, 'std': ct_clp_std}}, f, indent=4)
     
 class ImageTransformWrapper():
     """Wrapper to allow usage of monai transforms on our data structure
