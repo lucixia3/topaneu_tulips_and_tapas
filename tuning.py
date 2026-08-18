@@ -59,24 +59,26 @@ if __name__ == '__main__':
     else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
     test.wdir = 'tuning-test'
     
-    ## PrEP DL
-    train.append(val)
-    # train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
-    # val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
-    test_dl = DataLoader(test, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
+    ct, mr = train.separate_by_modality()
     
-    ## setup objs
-    trainer = NFoldTrainer()
-    model = TnTS2()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
-    model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
+    # ## PrEP DL
+    # train.append(val)
+    # # train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    # # val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    # test_dl = DataLoader(test, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
     
-    ## train or load
-    # model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=True)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
-    model = trainer.train(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    # ## setup objs
+    # trainer = NFoldTrainer()
+    # model = TnTS2()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
+    # model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
+    
+    # ## train or load
+    # # model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=True)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    # model = trainer.train(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
 
 
-    ## QnD test
-    print('#'*20, 'Testing ACC for Aneu', '#'*20)
-    acc = trainer.test(model, test_dl, decoder=DecodeAneu(), target='aneu')
-    print('#'*20, 'Testing ACC for Vessel', '#'*20)
-    acc = trainer.test(model, test_dl, decoder=DecodeVessel(), target='vessel')
+    # ## QnD test
+    # print('#'*20, 'Testing ACC for Aneu', '#'*20)
+    # acc = trainer.test(model, test_dl, decoder=DecodeAneu(), target='aneu')
+    # print('#'*20, 'Testing ACC for Vessel', '#'*20)
+    # acc = trainer.test(model, test_dl, decoder=DecodeVessel(), target='vessel')

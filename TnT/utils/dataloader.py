@@ -301,11 +301,10 @@ class TopAneu_TnTs2_DS(Dataset):
         self.aneus+=extra_patches
         
     def separate_by_modality(self):
-        ct = TopAneu_TnTs2_DS(self.image_ds.src, self.transforms, self.patch_size_mm, str(self.wdir)+'_ct' if self.wdir is not None else None)
-        ct.image_ds.cases = self.image_ds.cases
+        #source, transforms=None, cases=None, patch_size_mm=50, wdir=None
+        ct = TopAneu_TnTs2_DS(self.image_ds.src, self.transforms, self.image_ds.cases, self.patch_size_mm, str(self.wdir)+'_ct' if self.wdir is not None else None)
         
-        mr = TopAneu_TnTs2_DS(self.image_ds.src, self.transforms, self.patch_size_mm, str(self.wdir)+'_mr' if self.wdir is not None else None)
-        mr.image_ds.cases = self.image_ds.cases
+        mr = TopAneu_TnTs2_DS(self.image_ds.src, self.transforms, self.image_ds.cases, self.patch_size_mm, str(self.wdir)+'_mr' if self.wdir is not None else None)
         
         for a in self.aneus:
             if a['modality']=='MRA': mr.aneus.append(a)
