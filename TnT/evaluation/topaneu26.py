@@ -362,9 +362,9 @@ class TopAneu26LikeEvaluator():
     def eval_list(self, dir, files):
         results = []
         dir = Path(dir)
-        for f in files:
-            pred = self.pipeline(dir/'images'/f, 'MRA' if '_mr_' in f else 'CTA')
-            res = evaluation_function(pred, sitk.GetArrayFromImage(sitk.ReadImage(dir/'location_masks'/f.replace('_0000', ''))))
+        for f in tqdm(files, desc='Evaluating'):
+            pred = self.pipeline(sitk.ReadImage(dir/'images'/f), 'MRA' if '_mr_' in f else 'CTA')
+            res = evaluation_function(sitk.GetArrayFromImage(pred), sitk.GetArrayFromImage(sitk.ReadImage(dir/'location_masks'/f.replace('_0000', ''))))
             res['modality'] = 'MRA' if '_mr_' in f else 'CTA'
             results.append(res)
         aggregates = evaluation_aggregation(results)
@@ -376,8 +376,8 @@ class TopAneu26LikeEvaluator():
     def eval_dir(self, dir):
         results = []
         dir = Path(dir)
-        for f in os.listdir(dir):
-            pred = self.pipeline(dir/f, 'MRA' if '_mr_' in f else 'CTA')
+        for f in tqdm(os.listdir(dir), desc='Evaluating'):
+            pred = self.pipeline(sitk.ReadImage(dir/f), 'MRA' if '_mr_' in f else 'CTA')
             res = evaluation_function(pred, sitk.GetArrayFromImage(sitk.ReadImage(dir/'location_masks'/f.replace('_0000', ''))))
             res['modality'] = 'MRA' if '_mr_' in f else 'CTA'
             results.append(res)

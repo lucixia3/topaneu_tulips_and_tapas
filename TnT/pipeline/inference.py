@@ -1,24 +1,24 @@
 from TnT.utils.transforms import get_inference_transforms, DecodeAneu
 from TnT.utils.dataloader import TopAneu_TnTs2_DS
 from TnT.model.stage2 import TnTS2
-from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
+from TnT.model.stage1 import get_s1
+from TnT.model.modality_specific import TnTS2_Specific
 import SimpleITK as sitk, numpy as np, torch
 from scipy.ndimage import label
 from pathlib import Path
 
 class InferencePipeline():
     def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda'):
+        
         self.patch_size_mm = patch_size_mm
         self.s2_transforms = get_inference_transforms(patch_size_vx)
         self.decoder = DecodeAneu()
         self.device = device
         
         ## the models
-        self.s2_model = TnTS2()
-        self.s2_model.load(s2_model_path)
         if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path)
-        self.s2_model.to(self.device)
-        self.s2_model.eval()
+        if s2_model_path is not None: self.s2_model = self._make_s2(s2_model_path)
+
     
     @torch.no_grad()  
     def __call__(self, sample: sitk.Image, modality: str):
@@ -39,6 +39,7 @@ class InferencePipeline():
             image = sitk.GetArrayFromImage(image)
             vmask = msk==1
             lmask = msk==2
+        else: raise RuntimeError(f'unknown input type {type(sample)}')
         
         if np.any(lmask):
             s2ds = CaseDL(image, vmask, lmask, modality, self.s2_transforms, spacing, self.patch_size_mm)
@@ -84,24 +85,21 @@ class InferencePipeline():
         return decoded_label
     
     def _make_s1(self, path):
-        predictor = nnUNetPredictor(
-                    tile_step_size=0.5,
-                    use_gaussian=True,
-                    use_mirroring=True,
-                    perform_everything_on_device=True,
-                    device=torch.device(self.device),
-                    verbose=False,
-                    verbose_preprocessing=False,
-                    allow_tqdm=True,
-                )
-            
-        predictor.initialize_from_trained_model_folder(
-            path,
-            use_folds=(0,1,2,3,4,),
-            checkpoint_name="checkpoint_best.pth",
-        )
-        return predictor
+        return get_s1(path, self.device)
     
+    def _make_s2(self, path):
+        if isinstance(path, dict):
+            predictor = TnTS2_Specific(path['mr'], path['ct'])
+            predictor.to(self.device)
+            predictor.eval()
+        elif isinstance(path, str) or isinstance(path, Path):
+            predictor = TnTS2()
+            predictor.load(path)
+            predictor.to(self.device)
+            predictor.eval()
+        else:
+            raise ValueError(f'Cannot build S2 model from input type {type(path)}, needs to be path, str or dict of paths/strs for modality speficif modeling')
+        return predictor
 class CaseDL(TopAneu_TnTs2_DS):
     def __init__(self, image, vmask, lmask, modality, transforms, spacing, patch_size_mm):
         self.image = image

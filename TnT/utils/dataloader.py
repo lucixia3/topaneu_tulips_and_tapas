@@ -3,6 +3,7 @@ from pathlib import Path
 import os, tqdm, SimpleITK as sitk, json, numpy as np, random, torch, copy
 from scipy.ndimage import label, binary_erosion, binary_dilation
 from pprint import pprint
+from TnT.model.stage1 import get_s1
 
 class TopAneuDS(Dataset):
     def __init__(self, source, transforms=None, load_type_mask=False, cases=None):
@@ -62,12 +63,13 @@ class TopAneuDS(Dataset):
     
 class TopAneu_TnTs2_DS(Dataset):
     ########################### builtins
-    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50, wdir=None):
+    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50, wdir=None, syn_predictor=None):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
         self.aneus = []
         self.transforms = transforms
         self.patch_size_mm = patch_size_mm
         self.wdir = wdir
+        self.syn_pred = get_s1(syn_predictor, 'cuda') if syn_predictor is not None else None
         
     def __len__(self):
         return len(self.aneus)
@@ -99,6 +101,23 @@ class TopAneu_TnTs2_DS(Dataset):
             )
             
             if smp['location']==0: # if it is one the bg patches need to gen a random sphere
+                multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
+                
+            if smp['make_syn_msk'] and self.syn_pred is not None:
+                img_array = multichannel_img[0].copy()
+                img_array = img_array[np.newaxis, ...]  # -> (1, z, y, x)
+                    
+                # sitk spacing is (x, y, z); nnU-Net wants (z, y, x)
+                nnunet_spacing = list(img_smp['spacing'])[::-1]
+                props = {"spacing": nnunet_spacing}
+            
+                segmentation = self.syn_pred.predict_single_npy_array(
+                    img_array, props, None, None, False
+                ).astype(np.uint8)
+        
+                multichannel_img[2] = segmentation==1
+            
+            if smp['is_syn_sample']:
                 multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
             
             # get the associated vloc
@@ -264,7 +283,7 @@ class TopAneu_TnTs2_DS(Dataset):
     
     ###########################
     ########################### publics
-    def preprocess(self, include_bg=False, max_items=-1):
+    def preprocess(self, include_bg=False, include_pred=False, include_syn=False, max_items=-1):
         if self.is_patched: return
         self.aneus = []
         for i in tqdm.tqdm(range(len(self.image_ds)), desc='Patching'):
@@ -286,7 +305,9 @@ class TopAneu_TnTs2_DS(Dataset):
                     'modality': sample['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
                     'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
-                    'id': sample['id']
+                    'id': sample['id'],
+                    'make_syn_msk': False,
+                    'is_syn_sample': False,
                 }
                 self.aneus.append(smp)
             if i == max_items:break
@@ -297,6 +318,14 @@ class TopAneu_TnTs2_DS(Dataset):
         if include_bg:
             n_bg = round(n_real_patches*include_bg)
             extra_patches += self._make_bg_patches(n_bg)
+        if include_pred:
+            for a in self.aneus:
+                cur = copy.deepcopy(a)
+                cur['make_syn_msk']=True
+                extra_patches.append(cur)
+        if include_syn:
+            # has to add aneurysms with 'is_syn_sample'= False
+            raise NotImplementedError('Inclusion of snythetic cases not yet supported.')
             
         self.aneus+=extra_patches
         
