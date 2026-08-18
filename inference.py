@@ -10,7 +10,7 @@ if __name__ == '__main__':
     PATCH_SIZE_MM = 35
     
     S1_path = None # '/home/tue20260926/Models/TopAneu-26/Stage1/nnUNetTrainer_single_encoder_mixed__nnUNetPlans__3d_fullres'
-    S2_path = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_tune/TnTS2_training_from-10:17:54-17.08.26/best_val_loss'
+    S2_path = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_tune/TnTS2_training_from-12:41:52-18.08.26_clipping_and_new_stds/best_val_loss'
     
     ## Prep pipeline
     pl = InferencePipeline(S1_path, S2_path, PATCH_SIZE_VX, PATCH_SIZE_MM)

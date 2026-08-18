@@ -300,6 +300,19 @@ class TopAneu_TnTs2_DS(Dataset):
             
         self.aneus+=extra_patches
         
+    def separate_by_modality(self):
+        ct = TopAneu_TnTs2_DS(self.image_ds.src, self.transforms, self.patch_size_mm, str(self.wdir)+'_ct' if self.wdir is not None else None)
+        ct.image_ds.cases = self.image_ds.cases
+        
+        mr = TopAneu_TnTs2_DS(self.image_ds.src, self.transforms, self.patch_size_mm, str(self.wdir)+'_mr' if self.wdir is not None else None)
+        mr.image_ds.cases = self.image_ds.cases
+        
+        for a in self.aneus:
+            if a['modality']=='MRA': mr.aneus.append(a)
+            else: ct.aneus.append(a)
+            
+        return ct, mr
+        
     def split(self, folds='0.8-0.2', random_seed=42):
         folds = [float(val) for val in folds.split('-')]
         assert sum(folds)==1, 'Sum of folds must be equal to 1'

@@ -417,7 +417,7 @@ class TopAneu26LikeEvaluator():
         ct = [smp for smp in results if smp['modality']=='CTA']
         
         aggregates_mr = evaluation_aggregation(mr)
-        averages_mr = evaluation_average(aggregates_mr)
+        averages_mr = evaluation_average(aggregates_mr, ignore_absent=False)
         print('Results MRA:')
         pprint(averages_mr)
         self.plot(aggregates_mr, path/'per_cls_heatmap_mr.png', 'Per Class Aggregates MRA')
@@ -425,7 +425,7 @@ class TopAneu26LikeEvaluator():
             json.dump(averages_mr, f, indent=4)
         
         aggregates_ct = evaluation_aggregation(ct)
-        averages_ct = evaluation_average(aggregates_ct)
+        averages_ct = evaluation_average(aggregates_ct, ignore_absent=False)
         print('Results CTA:')
         pprint(averages_ct)
         self.plot(aggregates_ct, path/'per_cls_heatmap_ct.png', 'Per Class Aggregates CTA')
