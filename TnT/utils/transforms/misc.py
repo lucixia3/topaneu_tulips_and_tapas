@@ -60,6 +60,7 @@ def get_train_test_transforms(patch_size_vx):
         RandomNonCorrespondingMorph(0.2),
 
         # ---- Intensity-only transforms: image channel exclusively ----
+        AdaNorm.make(ct_clipped=True),
         ImageTransformWrapper(
             RandGaussianNoise(prob=0.2, mean=0.0, std=0.05),
             apply_to=['image']
@@ -88,7 +89,7 @@ def get_train_test_transforms(patch_size_vx):
             RandHistogramShift(prob=0.1, num_control_points=(3, 5)),
             apply_to=['image']
         ),
-        AdaNorm.make(ct_clipped=True),
+        
     ])
     
     return train_transforms, test_transforms
