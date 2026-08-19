@@ -101,7 +101,7 @@ class TnTS2_ViT(nn.Module):
     def __init__(self, n_locs_v=21, n_locs_a=29, n_lats=2):
         super().__init__()
         self.n_locs_v, self.n_locs_a, self.n_lats = n_locs_v, n_locs_a, n_lats
-        self.bb = vit.ViT(in_channels=3, img_size=(64,64,64), patch_size=(16,16,16), dropout_rate=0.1) # outputs [B, 768]
+        self.bb = vit.ViT(in_channels=3, img_size=(64,64,64), patch_size=(8,8,8), dropout_rate=0.1) # outputs [B, 768]
         self.laterality = nn.Linear(772, self.n_lats)
         self.location_vessel = nn.Linear(772, self.n_locs_v)
         self.location_aneu = nn.Linear(772+self.n_locs_v, self.n_locs_a) # in pretraining is the vessel classes
@@ -114,6 +114,7 @@ class TnTS2_ViT(nn.Module):
             coords = coords.unsqueeze(0)
 
         x, _ = self.bb(patch)
+        x = torch.mean(x, dim=1)
         modality_flag = torch.tensor([m == 'MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)
         x = torch.concat([x, coords, modality_flag], dim=-1)
         lat = self.laterality(x)

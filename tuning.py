@@ -4,7 +4,7 @@ import os, datetime, torch
 from tqdm import tqdm
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
 from TnT.utils.transforms import get_train_test_transforms, DecodeAneu, DecodeVessel, Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
-from TnT.model.stage2 import TnTS2
+from TnT.model.stage2 import TnTS2, TnTS2_ViT
 from TnT.trainer.base import BasicTrainer
 from TnT.trainer.n_fold import NFoldTrainer
 from monai.transforms import (
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     ## load splits
     if not os.path.exists('tuning-train.json'):
         train = TopAneu_TnTs2_DS.load('train.json', train_transforms)
-        train.preprocess(include_bg=0.2, max_items=1 if EARLY_STOP_PATCHING else -1)
+        train.preprocess(include_bg=0.2, include_pred=True, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1)
         train.save('tuning-train.json')
     else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms)
     train.wdir = 'tuning-train'
@@ -53,9 +53,6 @@ if __name__ == '__main__':
     else: val = TopAneu_TnTs2_DS.load('tuning-val.json', transforms)
     val.wdir = 'tuning-val'
     
-    for i in tqdm(range(len(val))):
-        smp = val[i]
-    
     if not os.path.exists('tuning-test.json'):
         test = TopAneu_TnTs2_DS.load('test.json', transforms)
         test.preprocess(max_items=1 if EARLY_STOP_PATCHING else -1)
@@ -64,24 +61,24 @@ if __name__ == '__main__':
     test.wdir = 'tuning-test'
     
     
-    # ## PrEP DL
-    # train.append(val)
-    # # train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
-    # # val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
-    # test_dl = DataLoader(test, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
+    ## PrEP DL
+    #train.append(val)
+    train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    test_dl = DataLoader(test, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
     
-    # ## setup objs
-    # trainer = NFoldTrainer()
-    # model = TnTS2()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
-    # model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
+    ## setup objs
+    trainer = BasicTrainer()
+    model = TnTS2_ViT()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
+    #model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
     
-    # ## train or load
-    # # model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=True)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
-    # model = trainer.train(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    ## train or load
+    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=True)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    #model = trainer.train(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
 
 
-    # ## QnD test
-    # print('#'*20, 'Testing ACC for Aneu', '#'*20)
-    # acc = trainer.test(model, test_dl, decoder=DecodeAneu(), target='aneu')
-    # print('#'*20, 'Testing ACC for Vessel', '#'*20)
-    # acc = trainer.test(model, test_dl, decoder=DecodeVessel(), target='vessel')
+    ## QnD test
+    print('#'*20, 'Testing ACC for Aneu', '#'*20)
+    acc = trainer.test(model, test_dl, decoder=DecodeAneu(), target='aneu')
+    print('#'*20, 'Testing ACC for Vessel', '#'*20)
+    acc = trainer.test(model, test_dl, decoder=DecodeVessel(), target='vessel')
