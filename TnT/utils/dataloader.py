@@ -320,15 +320,29 @@ class TopAneu_TnTs2_DS(Dataset):
         if include_pred:
             for a in self.aneus:
                 cur = copy.deepcopy(a)
-                cur['make_syn_msk']=True
+                cur['make_syn_msk']=False
                 extra_patches.append(cur)
         if include_syn:
-            ### should be a list of dicts with
-            # image file name (will be matched to index)
-            # aneu location label
-            # voxel coordinates
-            # has to add aneurysms with 'is_syn_sample'= False
-            raise NotImplementedError('Inclusion of snythetic cases not yet supported.')
+            for smp in include_syn:
+                match_idx = [i for i, c in enumerate(self.image_ds.cases) if c==(smp["id"]+"_0000.nii.gz")]
+                if len(match_idx)!=1: raise RuntimeError(f"found {match_idx} for {smp["id"]}")
+                sample = self.image_ds[match_idx[0]]
+                vbb_coords = np.argwhere(sample['vessel_mask']) # VBB = Vessel Bounding Box
+                vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
+                vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
+                vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
+                a = {
+                    'idx': match_idx[0], # the base image idx in the base dataset
+                    'coords': smp['coords'], # the centroid
+                    'location': smp['location'],
+                    'modality': sample['modality'],
+                    'vbb': [vbb_d, vbb_h, vbb_w],
+                    'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
+                    'id': smp['id'],
+                    'make_syn_msk': False,
+                    'is_syn_sample': True,
+                }
+                extra_patches.append(a)
             
         self.aneus+=extra_patches
         
