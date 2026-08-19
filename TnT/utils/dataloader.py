@@ -99,10 +99,7 @@ class TopAneu_TnTs2_DS(Dataset):
                     self._center_crop(img_smp['vessel_mask'], smp['coords'], img_smp['spacing'], self.patch_size_mm)
                 ], axis=0
             )
-            
-            if smp['location']==0: # if it is one the bg patches need to gen a random sphere
-                multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
-                
+
             if smp['make_syn_msk'] and self.syn_pred is not None:
                 img_array = multichannel_img[0].copy()
                 img_array = img_array[np.newaxis, ...]  # -> (1, z, y, x)
@@ -249,7 +246,9 @@ class TopAneu_TnTs2_DS(Dataset):
                     'modality': img_smp['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
                     'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
-                    'id': img_smp['id']
+                    'id': img_smp['id'],
+                    'make_syn_msk':False,
+                    'is_syn_sample': True
                 }
             
             bg_patches.append(smp)
@@ -324,6 +323,10 @@ class TopAneu_TnTs2_DS(Dataset):
                 cur['make_syn_msk']=True
                 extra_patches.append(cur)
         if include_syn:
+            ### should be a list of dicts with
+            # image file name (will be matched to index)
+            # aneu location label
+            # voxel coordinates
             # has to add aneurysms with 'is_syn_sample'= False
             raise NotImplementedError('Inclusion of snythetic cases not yet supported.')
             

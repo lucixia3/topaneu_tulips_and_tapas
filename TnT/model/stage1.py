@@ -5,7 +5,7 @@ from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 import torch
 
 
-def get_s1(path, device):
+def get_s1(path, device, folds=(0,1,2,3,4,)):
     os.environ['nnUNet_extTrainer'] = mixed()
     predictor = nnUNetPredictor(
                 tile_step_size=0.5,
@@ -20,7 +20,7 @@ def get_s1(path, device):
         
     predictor.initialize_from_trained_model_folder(
         path,
-        use_folds=(0,1,2,3,4,),
+        use_folds=folds,
         checkpoint_name="checkpoint_best.pth",
         
     )

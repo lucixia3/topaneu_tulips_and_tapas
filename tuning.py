@@ -1,6 +1,7 @@
 from pprint import pprint
 from pathlib import Path
 import os, datetime, torch
+from tqdm import tqdm
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader
 from TnT.utils.transforms import get_train_test_transforms, DecodeAneu, DecodeVessel, Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
@@ -47,10 +48,13 @@ if __name__ == '__main__':
     
     if not os.path.exists('tuning-val.json'):
         val = TopAneu_TnTs2_DS.load('val.json', transforms)
-        val.preprocess(max_items=1 if EARLY_STOP_PATCHING else -1)
+        val.preprocess(include_bg=0.2, include_pred=True, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1)
         val.save('tuning-val.json')
     else: val = TopAneu_TnTs2_DS.load('tuning-val.json', transforms)
     val.wdir = 'tuning-val'
+    
+    for i in tqdm(range(len(val))):
+        smp = val[i]
     
     if not os.path.exists('tuning-test.json'):
         test = TopAneu_TnTs2_DS.load('test.json', transforms)
@@ -59,7 +63,6 @@ if __name__ == '__main__':
     else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
     test.wdir = 'tuning-test'
     
-    ct, mr = train.separate_by_modality()
     
     # ## PrEP DL
     # train.append(val)
