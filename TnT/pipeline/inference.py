@@ -6,9 +6,10 @@ from TnT.model.modality_specific import TnTS2_Specific
 import SimpleITK as sitk, numpy as np, torch
 from scipy.ndimage import label
 from pathlib import Path
+import torch.nn.functional as F
 
 class InferencePipeline():
-    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=True):
+    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=False):
         
         self.patch_size_mm = patch_size_mm
         self.s2_transforms = get_inference_transforms(patch_size_vx)
@@ -89,27 +90,49 @@ class InferencePipeline():
     def _stage2_TTA(self, smp:dict) -> int:
         ttas = [
             (False, False, False), 
-            (True, False, False), 
-            (False, True, False), 
             (False, False, True),
-            (True, True, False),
-            (True, False, True),
-            (False, True, True),
-            (True, True, True),
         ]
         
         loc_probas = []
         lat_probas = []
-        for tta in ttas:
+        for tta in ttas: 
             img = smp['image']
             crd = smp['coords']
             
             flip_lat = False
-            for dim, trig in enumerate(tta):
+            for dim, trig in enumerate(tta):## lat dim is 2
+                if trig:
+                    img = torch.flip(img, [dim])
+                    crd[dim] = 1 - crd[dim]
+                    if dim == 2: flip_lat = True
                 
-            pred_lat, pred_loc = self.s2_model.classify(img.unsqueeze(0).to(self.device), crd.unsqueeze(0).to(self.device), [smp['modality']])
+            pred_lat, _, pred_loc = self.s2_model.forward(img.unsqueeze(0).to(self.device), crd.unsqueeze(0).to(self.device), [smp['modality']])
             pred_lat=pred_lat.detach().to('cpu')
             pred_loc=pred_loc.detach().to('cpu')
+            if flip_lat: 
+                tmp = pred_lat[0, -2].clone()
+                pred_lat[0, -2] = pred_lat[0, -1]
+                pred_lat[0, -1] = tmp
+            loc_probas.append(F.sigmoid(pred_loc))
+            lat_probas.append(F.sigmoid(pred_lat))
+            
+        loc_probas = torch.mean(torch.concat(loc_probas, dim=0), dim=0).unsqueeze(0)
+        assert len(loc_probas.shape)==2
+        lat_probas = torch.mean(torch.concat(lat_probas, dim=0), dim=0).unsqueeze(0)
+        assert len(lat_probas.shape)==2
+            
+        assigned_lat = torch.zeros_like(lat_probas, dtype=torch.uint8)
+        assigned_loc = torch.zeros_like(loc_probas, dtype=torch.uint8)
+        for b_item in range(lat_probas.shape[0]):
+            loc = torch.argmax(loc_probas[b_item, :]).item()
+            lat = torch.argmax(lat_probas[b_item, :]).item()
+            assigned_lat[b_item, lat]=1
+            assigned_loc[b_item, loc]=1
+        
+        preds = torch.concat([assigned_loc, assigned_lat], dim=-1)
+        assert len(preds.shape)==2, 'only implemented for batched data'
+        decoded_label = self.decoder(preds)[0][2]
+        return decoded_label
             
     
     def _make_s1(self, path):
