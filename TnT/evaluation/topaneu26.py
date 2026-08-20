@@ -7,9 +7,9 @@ from pprint import pprint
 from typing import Union, List, Tuple, Literal
 from scipy.ndimage import label, binary_erosion
 from scipy.spatial import cKDTree
-import seaborn as sns
-import matplotlib.pyplot as plt
-import pandas as pd
+import matplotlib.pyplot as plt 
+from TnT.evaluation.plotting import heatmap, spider
+
 
 N_CLASSES = 52
 
@@ -355,9 +355,10 @@ def evaluation_average(metrics: dict, ignore_absent=False) -> dict:
     return {k:float(v/present) for k, v in averages.items()}
 
 class TopAneu26LikeEvaluator():
-    def __init__(self, pipeline, wdir):
+    def __init__(self, pipeline, wdir, use_perfect_segmentations=False):
         self.pipeline = pipeline
         self.wdir = Path(wdir) if wdir is not None else None
+        self.use_perf = use_perfect_segmentations
         
     def eval_list(self, dir, files):
         results = []
@@ -391,12 +392,14 @@ class TopAneu26LikeEvaluator():
         results = []
         for i in tqdm(range(len(testset)), desc='Evaluating'):
             smp = testset[i]
-            fn = str(testset.src/'images'/f"{smp['id']}_0000.nii.gz")
-            try: pred = self.pipeline(fn, smp['modality'])
-            except: print('skipping', fn);continue
+            if not self.use_perf:
+                fn = str(testset.src/'images'/f"{smp['id']}_0000.nii.gz")
+                try: pred = self.pipeline(fn, smp['modality'])
+                except: print('skipping', fn);continue
+            else: pred = self.pipeline(smp, smp['modality'])
             assert isinstance(pred, np.ndarray)
             if self.wdir is not None:
-                os.makedirs(self.wdir/smp['id'].split('.')[0])
+                os.makedirs(self.wdir/smp['id'].split('.')[0], exist_ok=True)
                 gt = sitk.GetImageFromArray(smp['location_mask'])
                 p = sitk.GetImageFromArray(pred)
                 sitk.WriteImage(gt, self.wdir/smp['id'].split('.')[0]/'gt.nii.gz')
@@ -420,7 +423,7 @@ class TopAneu26LikeEvaluator():
         averages_mr = evaluation_average(aggregates_mr, ignore_absent=False)
         print('Results MRA:')
         pprint(averages_mr)
-        self.plot(aggregates_mr, path/'per_cls_heatmap_mr.png', 'Per Class Aggregates MRA')
+        self.plot(aggregates_mr, path/'per_cls_mr', 'Per Class Aggregates MRA')
         with open(path/'per_cls_mr.json', 'w') as f:
             json.dump(averages_mr, f, indent=4)
         
@@ -428,7 +431,7 @@ class TopAneu26LikeEvaluator():
         averages_ct = evaluation_average(aggregates_ct, ignore_absent=False)
         print('Results CTA:')
         pprint(averages_ct)
-        self.plot(aggregates_ct, path/'per_cls_heatmap_ct.png', 'Per Class Aggregates CTA')
+        self.plot(aggregates_ct, path/'per_cls_ct', 'Per Class Aggregates CTA')
         with open(path/'per_cls_ct.json', 'w') as f:
             json.dump(averages_ct, f, indent=4)
     
@@ -446,31 +449,8 @@ class TopAneu26LikeEvaluator():
                 'HD95': aggregates[f'HD95_{i}']
             }
             metrics_by_class[mapping[i]]=cur_vals
-        df = pd.DataFrame(metrics_by_class).T
-        n_rows, n_cols = df.shape
-        fig_w = max(6, n_cols * 1.1 + 2)
-        fig_h = max(8, n_rows * 0.42 + 2)
         
-        plt.figure(figsize=(fig_w, fig_h))
-        ax = sns.heatmap(
-            df,
-            vmin=0, vmax=1,
-            cmap='inferno',
-            annot=True,
-            fmt='.2f',              # round to 2 decimals
-            annot_kws={'size': 8},
-            linewidths=0.5,
-            linecolor='white',
-            cbar_kws={'label': 'Score'},
-        )
         
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right', fontsize=9)
-        ax.set_yticklabels(ax.get_yticklabels(), rotation=0, fontsize=9)
-        ax.set_title(title, fontsize=14, pad=12)
-        ax.set_xlabel('')
-        ax.set_ylabel('')
-        
-        plt.tight_layout()
-        plt.savefig(path, dpi=200, bbox_inches='tight')
-        plt.close()
+        heatmap(metrics_by_class, title, str(path)+"_heatmap.png")
+        spider(metrics_by_class, title, str(path)+"_spider.png")
 

@@ -24,3 +24,4 @@ def get_s1(path, device, folds=(0,1,2,3,4,)):
         checkpoint_name="checkpoint_best.pth",
         
     )
+    return predictor

@@ -280,14 +280,39 @@ class TopAneu_TnTs2_DS(Dataset):
             lowers[2]:lowers[2]+size_sph[2]] = obj
         return img
     
+    def _filter(self, smp, filter): # return true if an item needs to be removed
+        """Allows to filter out image samples according to certain conditions
+
+        Args:
+            smp (dict): the sample as loaded form the self.image_ds
+            filter (dict): The filter condition, must be structured like:
+                {
+                    'filename': str, list of str, None # Will reject any sample with str in the filename
+                    # to be extended when needed
+                }
+
+        Returns:
+            bool: True if an item needs to be removed, else False
+        """
+        if filter is None: return False
+        
+        if isinstance(fn_condition:=filter['filename'], str):
+            if fn_condition in smp['id']: return True
+        elif isinstance(fn_condition:=filter['filename'], list):
+            for fnc in fn_condition:
+                if fnc in smp['id']: return True
+                
+        return False
+        
     ###########################
     ########################### publics
-    def preprocess(self, include_bg=False, include_pred=False, include_syn=False, max_items=-1):
+    def preprocess(self, include_bg=False, include_pred=False, include_syn=False, max_items=-1, filter=None):
         if self.is_patched: return
         self.aneus = []
         for i in tqdm.tqdm(range(len(self.image_ds)), desc='Patching'):
             sample = self.image_ds[i]
             if not any(sample['location']): continue
+            if self._filter(sample, filter): continue
             
             cc, n = label(sample['location_mask'])
             

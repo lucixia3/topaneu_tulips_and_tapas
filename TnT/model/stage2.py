@@ -163,16 +163,7 @@ class TnTS2_ViT(nn.Module):
         self.bb.load_state_dict(torch.load(pth/'bb.pth'))
         self.location_vessel.load_state_dict(torch.load(pth/'vessel.pth'))
         self.location_aneu.load_state_dict(torch.load(pth/'aneu.pth'))
-        self.laterality.load_state_dict(torch.load(pth/'laterality.pth'))    
-    
-    @staticmethod
-    def from_pretrained(pth):
-        pth = pl.Path(pth)
-        model = TnTS2()
-        model.bb.load_state_dict(torch.load(pth/'bb.pth'))
-        model.location_vessel.load_state_dict(torch.load(pth/'location.pth'))
-        model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
-        return model
+        self.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
         
     def loss(self, patch, coords, modalities, targets_v, targets_a, targets_lat, weights):
         unbatched = isinstance(modalities, str)

@@ -41,14 +41,14 @@ if __name__ == '__main__':
     ## load splits
     if not os.path.exists('tuning-train.json'):
         train = TopAneu_TnTs2_DS.load('train.json', train_transforms)
-        train.preprocess(include_bg=0.2, include_pred=True, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1)
+        train.preprocess(include_bg=0.2, include_pred=False, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1, filter={'filename': 'center1'})
         train.save('tuning-train.json')
     else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms)
     train.wdir = 'tuning-train'
     
     if not os.path.exists('tuning-val.json'):
         val = TopAneu_TnTs2_DS.load('val.json', transforms)
-        val.preprocess(include_bg=0.2, include_pred=True, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1)
+        val.preprocess(include_bg=0.2, include_pred=False, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1)
         val.save('tuning-val.json')
     else: val = TopAneu_TnTs2_DS.load('tuning-val.json', transforms)
     val.wdir = 'tuning-val'
@@ -60,20 +60,23 @@ if __name__ == '__main__':
     else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
     test.wdir = 'tuning-test'
     
+    tr_ct, tr_mr = train.separate_by_modality()
+    vl_ct, vl_mr = val.separate_by_modality()
+    te_ct, te_mr = test.separate_by_modality()
     
     ## PrEP DL
     #train.append(val)
-    train_dl = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
-    val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
-    test_dl = DataLoader(test, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
+    train_dl = DataLoader(tr_mr, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    val_dl = DataLoader(vl_mr, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    test_dl = DataLoader(te_mr, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
     
     ## setup objs
-    trainer = BasicTrainer()
-    model = TnTS2_ViT()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
-    #model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
+    trainer = BasicTrainer(lr=1e-4)
+    model = TnTS2()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
+    model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
     
     ## train or load
-    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=True)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=200, early_stop=20, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
     #model = trainer.train(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
 
 
