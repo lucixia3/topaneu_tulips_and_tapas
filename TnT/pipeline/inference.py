@@ -8,12 +8,13 @@ from scipy.ndimage import label
 from pathlib import Path
 
 class InferencePipeline():
-    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda'):
+    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=True):
         
         self.patch_size_mm = patch_size_mm
         self.s2_transforms = get_inference_transforms(patch_size_vx)
         self.decoder = DecodeAneu()
         self.device = device
+        self.tta = use_tta
         
         ## the models
         if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path)
@@ -45,7 +46,8 @@ class InferencePipeline():
             s2ds = CaseDL(image, vmask, lmask, modality, self.s2_transforms, spacing, self.patch_size_mm)
             for i in range(len(s2ds)):
                 smp = s2ds[i]
-                pred = self._stage2(smp)
+                if self.tta: pred = self._stage2_TTA(smp)
+                else: pred = self._stage2(smp)
                 s2ds.add_label(i, pred)
             output = s2ds.make_mask()
         else: output = np.zeros_like(vmask)
@@ -83,6 +85,32 @@ class InferencePipeline():
         assert len(preds.shape)==2, 'only implemented for batched data'
         decoded_label = self.decoder(preds)[0][2]
         return decoded_label
+    
+    def _stage2_TTA(self, smp:dict) -> int:
+        ttas = [
+            (False, False, False), 
+            (True, False, False), 
+            (False, True, False), 
+            (False, False, True),
+            (True, True, False),
+            (True, False, True),
+            (False, True, True),
+            (True, True, True),
+        ]
+        
+        loc_probas = []
+        lat_probas = []
+        for tta in ttas:
+            img = smp['image']
+            crd = smp['coords']
+            
+            flip_lat = False
+            for dim, trig in enumerate(tta):
+                
+            pred_lat, pred_loc = self.s2_model.classify(img.unsqueeze(0).to(self.device), crd.unsqueeze(0).to(self.device), [smp['modality']])
+            pred_lat=pred_lat.detach().to('cpu')
+            pred_loc=pred_loc.detach().to('cpu')
+            
     
     def _make_s1(self, path):
         return get_s1(path, self.device)

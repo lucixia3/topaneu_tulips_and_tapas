@@ -421,8 +421,9 @@ class RandomFlipLaterality():
     
     def __call__(self, dct):
         if self.execute: 
+            dct['coords'][2] = 1-dct['coords'][2]
             if dct['image'].dim() == 3:
-                dct['image'] = torch.flip(dct['image'], dims=[self.aterality_dimension])
+                dct['image'] = torch.flip(dct['image'], dims=[self.laterality_dimension])
                 dct['laterality'] = self._flip_laterality(dct['laterality'])
             
             else:

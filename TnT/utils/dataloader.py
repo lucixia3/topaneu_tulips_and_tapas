@@ -235,9 +235,9 @@ class TopAneu_TnTs2_DS(Dataset):
             seed = possible_seeds[random.choice(range(possible_seeds.shape[0])), :]
             
             vbb_coords = np.argwhere(img_smp['vessel_mask']) # VBB = Vessel Bounding Box
-            vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
-            vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
-            vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
+            vbb_d = [int(np.min(vbb_coords[:, 0])), int(np.max(vbb_coords[:, 0]))]
+            vbb_h = [int(np.min(vbb_coords[:, 1])), int(np.max(vbb_coords[:, 1]))]
+            vbb_w = [int(np.min(vbb_coords[:, 2])), int(np.max(vbb_coords[:, 2]))]
             
             smp = {
                     'idx': i, # the base image idx in the base dataset
@@ -317,9 +317,9 @@ class TopAneu_TnTs2_DS(Dataset):
             cc, n = label(sample['location_mask'])
             
             vbb_coords = np.argwhere(sample['vessel_mask']) # VBB = Vessel Bounding Box
-            vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
-            vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
-            vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
+            vbb_d = [int(np.min(vbb_coords[:, 0])), int(np.max(vbb_coords[:, 0]))]
+            vbb_h = [int(np.min(vbb_coords[:, 1])), int(np.max(vbb_coords[:, 1]))]
+            vbb_w = [int(np.min(vbb_coords[:, 2])), int(np.max(vbb_coords[:, 2]))]
             
             for obj in range(1, n+1):
                 smp = {
@@ -616,9 +616,9 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
             vessel_mask = sample['vessel_mask']
             
             vbb_coords = np.argwhere(vessel_mask) # VBB = Vessel Bounding Box
-            vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
-            vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
-            vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
+            vbb_d = [int(np.min(vbb_coords[:, 0])), int(np.max(vbb_coords[:, 0]))]
+            vbb_h = [int(np.min(vbb_coords[:, 1])), int(np.max(vbb_coords[:, 1]))]
+            vbb_w = [int(np.min(vbb_coords[:, 2])), int(np.max(vbb_coords[:, 2]))]
             
             vessel_cls = np.unique(vessel_mask).tolist()
             

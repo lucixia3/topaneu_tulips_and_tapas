@@ -33,13 +33,16 @@ if __name__ == '__main__':
     train_transforms = None
     
     ## load splits
-    if not os.path.exists('tuning-train.json'):
-        train = TopAneu_TnTs2_DS.load('train.json', None)
+    if not os.path.exists('tuning-val.json'):
+        train = TopAneu_TnTs2_DS.load('val.json', None)
         train.preprocess(include_bg=0.2, max_items=1 if EARLY_STOP_PATCHING else -1)
-        train.save('tuning-train.json')
-    else: train = TopAneu_TnTs2_DS.load('tuning-train.json', None)
+        train.save('tuning-val.json')
+    else: train = TopAneu_TnTs2_DS.load('tuning-val.json', None)
     
-    AdaNorm.compute_mean_std(train.image_ds)
+    
+    
+    for i in range(len(train)):
+        print(train[i]['coords'])
     
     
     # cnt = np.zeros(29)
