@@ -15,6 +15,31 @@ class TnTS2_Specific(nn.Module):
         self.ct.load(ct_model_path)
         self.mr = TnTS2()
         self.mr.load(mr_model_path)
+        
+    def forward(self, patch, coords, modalities):
+        assert not isinstance(modalities, str), 'only implemented for batched data!!!!'
+        lats = []
+        locs_v = []
+        locs_a = []
+        
+        for i, mod in enumerate(modalities):
+            if mod == 'MRA':
+                lat, v, a = self.mr(patch[i].unsqueeze(0), coords[i].unsqueeze(0), [mod])
+                lats.append(lat)
+                locs_v.append(v)
+                locs_a.append(a)
+            elif mod == 'CTA':
+                lat, v, a = self.ct(patch[i].unsqueeze(0), coords[i].unsqueeze(0), [mod])
+                lats.append(lat)
+                locs_v.append(v)
+                locs_a.append(a)
+            else: raise ValueError(f'Received unknown modality {mod}')
+
+        lat = torch.concat(lats, dim=0)
+        loc_v = torch.concat(locs_v, dim=0) 
+        loc_a = torch.concat(locs_a, dim=0) 
+        
+        return lat, loc_v, loc_a
     
     def classify(self, patch, coords, modalities, target='aneu'):
         unbatched = isinstance(modalities, str)
