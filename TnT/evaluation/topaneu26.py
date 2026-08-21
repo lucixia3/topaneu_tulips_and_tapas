@@ -389,7 +389,10 @@ class TopAneu26LikeEvaluator():
         return results, aggregates_all, averages_all
     
     def eval_ds(self, testset):
+        with open('/home/tue20260926/Repos/TopAneu-26/topaneu_release/location_mapping.json', 'r') as f:
+            mapping = {v:k for k, v in json.load(f)['labels'].items()}
         results = []
+        discrepancies = {}
         for i in tqdm(range(len(testset)), desc='Evaluating'):
             smp = testset[i]
             if not self.use_perf:
@@ -407,11 +410,22 @@ class TopAneu26LikeEvaluator():
             res = evaluation_function(pred, smp['location_mask'])
             res['modality'] = smp['modality']
             results.append(res)
+            
+            if self.use_perf:
+                cc, n = label(smp['location_mask'])
+                for i in range(1, n+1):
+                    slc = cc==i
+                    gt_v=np.median(smp['location_mask'][slc])
+                    pred_v=np.median(pred[slc])
+                    if gt_v!=pred_v:
+                        discrepancies[smp['id']+f'_{i}']={'GT':mapping[gt_v],'Predicted':mapping[pred_v]}
+            
+            
         aggregates = evaluation_aggregation(results)
         averages = evaluation_average(aggregates)
         print('Results:')
         pprint(averages)
-        return results, aggregates, averages
+        return results, aggregates, averages, discrepancies
     
     def re_eval_by_modality(self, results, path):
         path = Path(path)

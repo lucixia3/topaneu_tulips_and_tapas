@@ -88,7 +88,7 @@ class InferencePipeline():
         return decoded_label
     
     def _stage2_TTA(self, smp:dict) -> int:
-        ttas = [
+        ttas = [ ## for more ttas the model should be trained with more flip augmentations
             (False, False, False), 
             (False, False, True),
         ]
@@ -100,9 +100,9 @@ class InferencePipeline():
             crd = smp['coords']
             
             flip_lat = False
-            for dim, trig in enumerate(tta):## lat dim is 2
+            for dim, trig in enumerate(tta):## lat dim is 2 in unchanneled data
                 if trig:
-                    img = torch.flip(img, [dim])
+                    img = torch.flip(img, [dim+1]) # +1 to offset channel dim
                     crd[dim] = 1 - crd[dim]
                     if dim == 2: flip_lat = True
                 

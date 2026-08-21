@@ -18,14 +18,16 @@ if __name__ == '__main__':
     }
     
     ## Prep pipeline
-    pl = InferencePipeline(S1_path, S2_path, PATCH_SIZE_VX, PATCH_SIZE_MM)
+    pl = InferencePipeline(S1_path, S2_path, PATCH_SIZE_VX, PATCH_SIZE_MM, use_tta=True)
     
     ## Prep data
     test = TopAneuDS.load('test.json')
     ## Prep evaluator
-    outdir = 'results_with_s1_modspec'
+    outdir = 'results_with_s1_tta'
     ev = TopAneu26LikeEvaluator(pl, outdir, use_perfect_segmentations=False)
-    res, agg, avg = ev.eval_ds(test)#ev.eval_list(test.src, test.cases)
+    res, agg, avg, disc = ev.eval_ds(test)#ev.eval_list(test.src, test.cases)
+    with open(f'{outdir}/classification_failure.json', 'w') as f:
+            json.dump(disc, f, indent=4)
     
     # with open('res_agg.json', 'w') as f:
     #     json.dump(agg, f, indent=4)
