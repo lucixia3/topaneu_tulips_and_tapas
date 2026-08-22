@@ -54,7 +54,7 @@ def get_train_test_transforms(patch_size_vx):
         # ---- Spatial stuff ----
         RandomFlipLaterality(0.5),
         
-        NoisyCoordinates(0, 0.2, 0.9),
+        NoisyCoordinates(0, 0.05, 0.9),
         
         # ---- Custom stuff ----
         RandomMask(0.2),
