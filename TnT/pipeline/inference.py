@@ -1,32 +1,60 @@
 from TnT.utils.transforms import get_inference_transforms, DecodeAneu
 from TnT.utils.dataloader import TopAneu_TnTs2_DS
+from TnT.model.stage2 import TnTS2
+from TnT.model.stage1 import get_s1
+from TnT.model.modality_specific import TnTS2_Specific
 import SimpleITK as sitk, numpy as np, torch
 from scipy.ndimage import label
+from pathlib import Path
+import torch.nn.functional as F
+from pathlib import Path
 
 class InferencePipeline():
-    def __init__(self, model, patch_size_vx=64, patch_size_mm=35, device='cuda'):
-        self.s2_model = model
+    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=False):
+        
         self.patch_size_mm = patch_size_mm
         self.s2_transforms = get_inference_transforms(patch_size_vx)
         self.decoder = DecodeAneu()
         self.device = device
-        self.s2_model.to(self.device)
-        self.s2_model.eval()
+        self.tta = use_tta
+        
+        ## the models
+        if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path)
+        if s2_model_path is not None: 
+            if isinstance(s2_model_path, TnTS2): 
+                self.s2_model = s2_model_path
+                self.s2_model.to(self.device)
+                self.s2_model.eval()
+            else: self.s2_model = self._make_s2(s2_model_path)
+
     
     @torch.no_grad()  
     def __call__(self, sample: sitk.Image, modality: str):
         if isinstance(sample, sitk.Image):
             image, vmask, lmask = self._stage1(sample)
+            spacing = sample.GetSpacing()
         elif isinstance(sample, dict):
             image=sample['image']
             vmask=sample['vessel_mask']!=0
             lmask=sample['location_mask']!=0
+            spacing = sample['spacing']
+        elif isinstance(sample, str):
+            base = Path('/home/tue20260926/Data/TNT/s1/infersTs_altTrainer_best')
+            sample = Path(sample)
+            image = sitk.ReadImage(sample)
+            msk = sitk.GetArrayFromImage(sitk.ReadImage(base/sample.name.replace('_0000', '')))
+            spacing = image.GetSpacing()
+            image = sitk.GetArrayFromImage(image)
+            vmask = msk==1
+            lmask = msk==2
+        else: raise RuntimeError(f'unknown input type {type(sample)}')
         
         if np.any(lmask):
-            s2ds = CaseDL(image, vmask, lmask, modality, self.s2_transforms, sample.GetSpacing() if isinstance(sample, sitk.Image) else sample['spacing'], self.patch_size_mm)
+            s2ds = CaseDL(image, vmask, lmask, modality, self.s2_transforms, spacing, self.patch_size_mm)
             for i in range(len(s2ds)):
                 smp = s2ds[i]
-                pred = self._stage2(smp)
+                if self.tta: pred = self._stage2_TTA(smp)
+                else: pred = self._stage2(smp)
                 s2ds.add_label(i, pred)
             output = s2ds.make_mask()
         else: output = np.zeros_like(vmask)
@@ -37,8 +65,24 @@ class InferencePipeline():
             return outimg
         else: return output.astype(np.uint8)
         
-    def _stage1(self, sample: sitk.Image):
-        raise NotImplementedError('Needs to return a tuple of (\n   image: (as it was passed to the funciton, no mutations or transformations applied), \n    location_mask: (binary), \n    vessel_mask: (binary)\n)')
+    def _stage1(self, image: sitk.Image):
+        # nnU-Net expects numpy arrays shaped (channels, z, y, x)
+        img_array = sitk.GetArrayFromImage(image).astype(np.float32)  # (z, y, x)
+        img_array = img_array[np.newaxis, ...]  # -> (1, z, y, x)
+    
+        # sitk spacing is (x, y, z); nnU-Net wants (z, y, x)
+        nnunet_spacing = list(image.GetSpacing())[::-1]
+        props = {"spacing": nnunet_spacing}
+    
+        segmentation = self.s1_model.predict_single_npy_array(
+            img_array, props, None, None, False
+        ).astype(np.uint8)
+
+        vmask_arr = segmentation==1
+        lmask_arr = segmentation==2
+        
+        return img_array.squeeze(0), vmask_arr, lmask_arr
+        
     
     def _stage2(self, smp: dict) -> int:
         pred_lat, pred_loc = self.s2_model.classify(smp['image'].unsqueeze(0).to(self.device), smp['coords'].unsqueeze(0).to(self.device), [smp['modality']])
@@ -48,7 +92,71 @@ class InferencePipeline():
         assert len(preds.shape)==2, 'only implemented for batched data'
         decoded_label = self.decoder(preds)[0][2]
         return decoded_label
+    
+    def _stage2_TTA(self, smp:dict) -> int:
+        ttas = [ ## for more ttas the model should be trained with more flip augmentations
+            (False, False, False), 
+            (False, False, True),
+        ]
         
+        loc_probas = []
+        lat_probas = []
+        for tta in ttas: 
+            img = smp['image']
+            crd = smp['coords']
+            
+            flip_lat = False
+            for dim, trig in enumerate(tta):## lat dim is 2 in unchanneled data
+                if trig:
+                    img = torch.flip(img, [dim+1]) # +1 to offset channel dim
+                    crd[dim] = 1 - crd[dim]
+                    if dim == 2: flip_lat = True
+                
+            pred_lat, _, pred_loc = self.s2_model.forward(img.unsqueeze(0).to(self.device), crd.unsqueeze(0).to(self.device), [smp['modality']])
+            pred_lat=pred_lat.detach().to('cpu')
+            pred_loc=pred_loc.detach().to('cpu')
+            if flip_lat: 
+                tmp = pred_lat[0, -2].clone()
+                pred_lat[0, -2] = pred_lat[0, -1]
+                pred_lat[0, -1] = tmp
+            loc_probas.append(F.sigmoid(pred_loc))
+            lat_probas.append(F.sigmoid(pred_lat))
+            
+        loc_probas = torch.mean(torch.concat(loc_probas, dim=0), dim=0).unsqueeze(0)
+        assert len(loc_probas.shape)==2
+        lat_probas = torch.mean(torch.concat(lat_probas, dim=0), dim=0).unsqueeze(0)
+        assert len(lat_probas.shape)==2
+            
+        assigned_lat = torch.zeros_like(lat_probas, dtype=torch.uint8)
+        assigned_loc = torch.zeros_like(loc_probas, dtype=torch.uint8)
+        for b_item in range(lat_probas.shape[0]):
+            loc = torch.argmax(loc_probas[b_item, :]).item()
+            lat = torch.argmax(lat_probas[b_item, :]).item()
+            assigned_lat[b_item, lat]=1
+            assigned_loc[b_item, loc]=1
+        
+        preds = torch.concat([assigned_loc, assigned_lat], dim=-1)
+        assert len(preds.shape)==2, 'only implemented for batched data'
+        decoded_label = self.decoder(preds)[0][2]
+        return decoded_label
+            
+    
+    def _make_s1(self, path):
+        return get_s1(path, self.device)
+    
+    def _make_s2(self, path):
+        if isinstance(path, dict):
+            predictor = TnTS2_Specific(path['mr'], path['ct'])
+            predictor.to(self.device)
+            predictor.eval()
+        elif isinstance(path, str) or isinstance(path, Path):
+            predictor = TnTS2()
+            predictor.load(path)
+            predictor.to(self.device)
+            predictor.eval()
+        else:
+            raise ValueError(f'Cannot build S2 model from input type {type(path)}, needs to be path, str or dict of paths/strs for modality speficif modeling')
+        return predictor
 class CaseDL(TopAneu_TnTs2_DS):
     def __init__(self, image, vmask, lmask, modality, transforms, spacing, patch_size_mm):
         self.image = image
@@ -59,7 +167,7 @@ class CaseDL(TopAneu_TnTs2_DS):
         self.cc, self.n = label(self.lmask)
         self.spacing = spacing
         self.patch_size_mm = patch_size_mm
-        vbb_coords = np.argwhere(self.vmask) # VBB = Vessel Bounding Box
+        vbb_coords = np.argwhere(self.vmask).T # VBB = Vessel Bounding Box
         vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
         vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
         vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]

@@ -1,0 +1,95 @@
+training run with fixed vbb stuff
+/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-14:23:45-25.08.26/best_val_loss
+Evaluating: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 63/63 [02:47<00:00,  2.66s/it]
+Results:
+{'DICE': 0.22034072767468751,
+ 'HD95': 0.4318722276181679,
+ 'MCC': 0.24293701566654294,
+ 'PRECISION': 0.23108962381801018,
+ 'RECALL': 0.27243574233833745,
+ 'VOLSIM': 0.22570420524556828}
+Results MRA:
+{'DICE': 0.17804423108266337,
+ 'HD95': 0.29187048040127217,
+ 'MCC': 0.1957979535342952,
+ 'PRECISION': 0.1891024676816872,
+ 'RECALL': 0.21794859321590004,
+ 'VOLSIM': 0.18146126792326228}
+Results CTA:
+{'DICE': 0.12980761647656147,
+ 'HD95': 0.261465270066477,
+ 'MCC': 0.13681389505644118,
+ 'PRECISION': 0.13942298677891796,
+ 'RECALL': 0.14423067628212433,
+ 'VOLSIM': 0.13243746449557306}
+#################### Testing ACC for Aneu ####################
+Testing batches: 100%|█████████████████████████████████████████████████████████████████████████████████████████████| 73/73 [00:56<00:00,  1.29it/s]
+Model achieved an accuracy of {'location acc': 0.5753424657534246, 'laterality acc': 0.7671232876712328, 'topaneu cls acc': 0.5616438356164384}
+#################### Testing ACC for Vessel ####################
+Testing batches: 100%|█████████████████████████████████████████████████████████████████████████████████████████████| 73/73 [00:04<00:00, 17.62it/s]
+Model achieved an accuracy of {'location acc': 0.6575342465753424, 'laterality acc': 0.8767123287671232, 'topaneu cls acc': 0.6575342465753424}
+
+lower performance in straight up classification but better with tta inference
+training run with laterality flip that updates coordinates
+Results:
+{'DICE': 0.23206233274538,
+ 'HD95': 0.44156308810619055,
+ 'MCC': 0.25706014811005995,
+ 'PRECISION': 0.2631408689035183,
+ 'RECALL': 0.27243574233833745,
+ 'VOLSIM': 0.23664477341446435}
+Results MRA:
+{'DICE': 0.16650578379723374,
+ 'HD95': 0.3245486883439262,
+ 'MCC': 0.18686244025757137,
+ 'PRECISION': 0.19551271047016527,
+ 'RECALL': 0.19871784321588082,
+ 'VOLSIM': 0.16923941340966425}
+Results CTA:
+{'DICE': 0.15384605596895048,
+ 'HD95': 0.21819608697347598,
+ 'MCC': 0.1591797937236028,
+ 'PRECISION': 0.16346142628214355,
+ 'RECALL': 0.16346142628214355,
+ 'VOLSIM': 0.15647590399879868}
+/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-14:50:44-25.08.26/best_val_loss
+#################### Testing ACC for Aneu ####################
+Testing batches: 100%|█████████████████████████████████████████████████████████████████████████████████████████████| 73/73 [00:04<00:00, 17.13it/s]
+Model achieved an accuracy of {'location acc': 0.547945205479452, 'laterality acc': 0.7671232876712328, 'topaneu cls acc': 0.5342465753424658}
+#################### Testing ACC for Vessel ####################
+Testing batches: 100%|█████████████████████████████████████████████████████████████████████████████████████████████| 73/73 [00:04<00:00, 17.35it/s]
+Model achieved an accuracy of {'location acc': 0.6438356164383562, 'laterality acc': 0.8904109589041096, 'topaneu cls acc': 0.6438356164383562}
+
+With the noisy coordiantes transformation
+imporves performance overall but reduced performance on CTA, likely since there is less CTA data available so noise inhibits generalization?
+Results:
+{'DICE': 0.23840391261651137,
+ 'HD95': 0.4343124808362692,
+ 'MCC': 0.2640149757170909,
+ 'PRECISION': 0.2570511546872052,
+ 'RECALL': 0.2892626464849913,
+ 'VOLSIM': 0.24331178533395853}
+Results MRA:
+{'DICE': 0.18573654233409814,
+ 'HD95': 0.3245486862071752,
+ 'MCC': 0.20387270215596784,
+ 'PRECISION': 0.20833322382485672,
+ 'RECALL': 0.21794859321590004,
+ 'VOLSIM': 0.18847017195667817}
+Results CTA:
+{'DICE': 0.1346153059814595,
+ 'HD95': 0.2566575885760777,
+ 'MCC': 0.14716782386307398,
+ 'PRECISION': 0.15384604647444886,
+ 'RECALL': 0.15384604647444886,
+ 'VOLSIM': 0.13724515399877943}
+/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-15:24:43-25.08.26
+------------------- Epoch 06/20 -------------------
+Training batches: 100%|████████████████████████████████████████████████████████████████████████████████████████████| 81/81 [00:36<00:00,  2.21it/s]
+Validating batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████| 17/17 [00:02<00:00,  5.73it/s]
+#################### Testing ACC for Aneu ####################
+Testing batches: 100%|█████████████████████████████████████████████████████████████████████████████████████████████| 73/73 [00:03<00:00, 18.61it/s]
+Model achieved an accuracy of {'location acc': 0.547945205479452, 'laterality acc': 0.7397260273972602, 'topaneu cls acc': 0.5342465753424658}
+#################### Testing ACC for Vessel ####################
+Testing batches: 100%|█████████████████████████████████████████████████████████████████████████████████████████████| 73/73 [00:03<00:00, 21.77it/s]
+Model achieved an accuracy of {'location acc': 0.6438356164383562, 'laterality acc': 0.8904109589041096, 'topaneu cls acc': 0.6438356164383562}

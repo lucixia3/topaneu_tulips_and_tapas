@@ -7,7 +7,8 @@ from TnT.utils.transforms import DecodeAneu
 import matplotlib.pyplot as plt
 from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
 import TnT.trainer.class_weigths as cw
-
+from TnT.pipeline.inference import InferencePipeline
+from TnT.evaluation.topaneu26 import TopAneu26LikeEvaluator
 
 class BasicTrainer():
     def __init__(self, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, device='cuda'):
@@ -15,6 +16,7 @@ class BasicTrainer():
         self.optim = optim
         self.sched = sched
         self.device = device
+        self.wdir=None
         
     def _save_train_cfg(self, model, train_dl, val_dl, epochs, early_stop, wdir, use_aneu_class_balancing):
         with open(wdir/'train_cfg.txt', 'w') as f:
@@ -33,6 +35,7 @@ class BasicTrainer():
         
     def train(self, model, train_dl, val_dl, epochs=1, early_stop=5, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y')), loss=None, use_aneu_class_balancing = False):
         os.makedirs(wdir)
+        self.wdir=wdir
         self._save_train_cfg(model, train_dl, val_dl, epochs, early_stop, wdir, use_aneu_class_balancing)
         if use_aneu_class_balancing:
             ac_weights = torch.tensor(cw.ANEURYSM).to(self.device)
@@ -99,7 +102,7 @@ class BasicTrainer():
         model.load(wdir/f'best_val_loss')
         return model
                 
-    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeAneu(), target='aneu'):
+    def test(self, model, test_dl, best_model_dir=None, decoder=DecodeAneu(), target='aneu'): 
         if best_model_dir is not None:
             model.load(best_model_dir)
         model.to(self.device)
@@ -131,3 +134,17 @@ class BasicTrainer():
         print(f"Model achieved an accuracy of {acc}")
         
         return acc
+    
+    def test_TopAneu(self, model, testds):
+        pl = InferencePipeline(None, model, 64, 35, use_tta=True)
+        outdir = self.wdir/'eval'
+        ev = TopAneu26LikeEvaluator(pl, outdir, use_perfect_segmentations=True)
+
+        res, agg, avg, disc = ev.eval_ds(testds)#ev.eval_list(test.src, test.cases)
+        with open(f'{outdir}/classification_failure.json', 'w') as f:
+                json.dump(disc, f, indent=4)
+        os.makedirs(outdir, exist_ok=True)
+        ev.plot(agg, f'{outdir}/per_clas')
+        ev.re_eval_by_modality(res, outdir)
+        with open(f'{outdir}/per_cls.json', 'w') as f:
+            json.dump(avg, f, indent=4)

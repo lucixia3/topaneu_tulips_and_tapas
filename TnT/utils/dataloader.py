@@ -218,7 +218,7 @@ class TopAneu_TnTs2_DS(Dataset):
             
             seed = possible_seeds[random.choice(range(possible_seeds.shape[0])), :]
             
-            vbb_coords = np.argwhere(img_smp['vessel_mask']) # VBB = Vessel Bounding Box
+            vbb_coords = np.argwhere(img_smp['vessel_mask']).T # VBB = Vessel Bounding Box
             vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
             vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
             vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
@@ -273,7 +273,7 @@ class TopAneu_TnTs2_DS(Dataset):
             
             cc, n = label(sample['location_mask'])
             
-            vbb_coords = np.argwhere(sample['vessel_mask']) # VBB = Vessel Bounding Box
+            vbb_coords = np.argwhere(sample['vessel_mask']).T # VBB = Vessel Bounding Box
             vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
             vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
             vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
@@ -333,6 +333,18 @@ class TopAneu_TnTs2_DS(Dataset):
                         fold.aneus.append(aneu)
         
         return fold_ds
+    
+    def separate_by_modality(self):
+        #source, transforms=None, cases=None, patch_size_mm=50, wdir=None
+        ct = TopAneu_TnTs2_DS(self.image_ds.src, self.transforms, self.image_ds.cases, self.patch_size_mm, str(self.wdir)+'_ct' if self.wdir is not None else None)
+        
+        mr = TopAneu_TnTs2_DS(self.image_ds.src, self.transforms, self.image_ds.cases, self.patch_size_mm, str(self.wdir)+'_mr' if self.wdir is not None else None)
+        
+        for a in self.aneus:
+            if a['modality']=='MRA': mr.aneus.append(a)
+            else: ct.aneus.append(a)
+            
+        return ct, mr
     
     def save(self, path):
         saveable = {
@@ -532,7 +544,7 @@ class TopAneu_TnTs2_DS_for_vessel_pt(Dataset):
             
             vessel_mask = sample['vessel_mask']
             
-            vbb_coords = np.argwhere(vessel_mask) # VBB = Vessel Bounding Box
+            vbb_coords = np.argwhere(vessel_mask).T # VBB = Vessel Bounding Box
             vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
             vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
             vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]

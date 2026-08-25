@@ -7,6 +7,9 @@ from pprint import pprint
 from typing import Union, List, Tuple, Literal
 from scipy.ndimage import label, binary_erosion
 from scipy.spatial import cKDTree
+import matplotlib.pyplot as plt 
+from TnT.evaluation.plotting import heatmap, spider, decluttered_spider
+
 
 N_CLASSES = 52
 
@@ -302,6 +305,7 @@ def evaluation_aggregation(metrics: List[dict], eps: float=1e-6) -> dict: # epsi
     ## aggregate all tpfpfn
     for k in keys:
         if k == 'INSTANCE_LEVEL':continue
+        if k == 'modality': continue
         aggregates[k]=sum([samp[k] for samp in metrics])
     ## compute per location prec, rec, mcc
     for i in range(1, N_CLASSES+1):
@@ -327,7 +331,7 @@ def evaluation_aggregation(metrics: List[dict], eps: float=1e-6) -> dict: # epsi
         aggregates[f"VOLSIM_{i}"] /= (aggregates[f"TP_{i}"]+aggregates[f"FN_{i}"]+aggregates[f"FP_{i}"]+eps)
     return aggregates
 
-def evaluation_average(metrics: dict) -> dict:
+def evaluation_average(metrics: dict, ignore_absent=False) -> dict:
     """Computes the average metrics across classes for ranking
 
     Args:
@@ -337,35 +341,130 @@ def evaluation_average(metrics: dict) -> dict:
         dict: The average-across-classes metrics
     """
     averages = {"PRECISION": 0, "RECALL":0, "MCC":0, "DICE":0, "HD95":0, "VOLSIM":0}
+    present = 0
     for i in range(1, N_CLASSES+1):
+        if ignore_absent:
+            if metrics[f"TP_{i}"]==0 and metrics[f"FN_{i}"]==0 and metrics[f"FP_{i}"]==0: continue
         averages["PRECISION"]+=metrics[f"PRECISION_{i}"]
         averages["RECALL"]+=metrics[f"RECALL_{i}"]
         averages["MCC"]+=metrics[f"MCC_{i}"]
         averages["DICE"]+=metrics[f"DICE_{i}"]
         averages["HD95"]+=metrics[f"HD95_{i}"]
         averages["VOLSIM"]+=metrics[f"VOLSIM_{i}"]
-    return {k:float(v/N_CLASSES) for k, v in averages.items()}
+        present += 1
+    return {k:float(v/present) for k, v in averages.items()}
 
 class TopAneu26LikeEvaluator():
-    def __init__(self, pipeline, wdir):
+    def __init__(self, pipeline, wdir, use_perfect_segmentations=False):
         self.pipeline = pipeline
-        self.wdir = Path(wdir)
+        self.wdir = Path(wdir) if wdir is not None else None
+        self.use_perf = use_perfect_segmentations
         
-    def eval(self, testset):
+    def eval_list(self, dir, files):
         results = []
-        for i in tqdm(range(len(testset)), desc='Evaluating'):
-            smp = testset[i]
-            pred = self.pipeline(smp, smp['modality'])
-            assert isinstance(pred, np.ndarray)
-            os.makedirs(self.wdir/smp['id'].split('.')[0])
-            gt = sitk.GetImageFromArray(smp['location_mask'])
-            p = sitk.GetImageFromArray(pred)
-            sitk.WriteImage(gt, self.wdir/smp['id'].split('.')[0]/'gt.nii.gz')
-            sitk.WriteImage(p, self.wdir/smp['id'].split('.')[0]/'pred.nii.gz')
-            results.append(evaluation_function(pred, smp['location_mask']))
+        dir = Path(dir)
+        for f in tqdm(files, desc='Evaluating'):
+            pred = self.pipeline(sitk.ReadImage(dir/'images'/f), 'MRA' if '_mr_' in f else 'CTA')
+            res = evaluation_function(sitk.GetArrayFromImage(pred), sitk.GetArrayFromImage(sitk.ReadImage(dir/'location_masks'/f.replace('_0000', ''))))
+            res['modality'] = 'MRA' if '_mr_' in f else 'CTA'
+            results.append(res)
         aggregates = evaluation_aggregation(results)
         averages = evaluation_average(aggregates)
         print('Results:')
         pprint(averages)
-        return averages
+        return results, aggregates, averages
+                
+    def eval_dir(self, dir):
+        results = []
+        dir = Path(dir)
+        for f in tqdm(os.listdir(dir), desc='Evaluating'):
+            pred = self.pipeline(sitk.ReadImage(dir/f), 'MRA' if '_mr_' in f else 'CTA')
+            res = evaluation_function(pred, sitk.GetArrayFromImage(sitk.ReadImage(dir/'location_masks'/f.replace('_0000', ''))))
+            res['modality'] = 'MRA' if '_mr_' in f else 'CTA'
+            results.append(res)
+        aggregates_all = evaluation_aggregation(results)
+        averages_all = evaluation_average(aggregates_all)
+        print('Results:')
+        pprint(averages_all)
+        return results, aggregates_all, averages_all
     
+    def eval_ds(self, testset):
+        with open('/home/tue20260926/Repos/TopAneu-26/topaneu_release/location_mapping.json', 'r') as f:
+            mapping = {v:k for k, v in json.load(f)['labels'].items()}
+        results = []
+        discrepancies = {}
+        for i in tqdm(range(len(testset)), desc='Evaluating'):
+            smp = testset[i]
+            if not self.use_perf:
+                fn = str(testset.src/'images'/f"{smp['id']}_0000.nii.gz")
+                try: pred = self.pipeline(fn, smp['modality'])
+                except: print('skipping', fn);continue
+            else: pred = self.pipeline(smp, smp['modality'])
+            assert isinstance(pred, np.ndarray)
+            if self.wdir is not None:
+                os.makedirs(self.wdir/smp['id'].split('.')[0], exist_ok=True)
+                gt = sitk.GetImageFromArray(smp['location_mask'])
+                p = sitk.GetImageFromArray(pred)
+                sitk.WriteImage(gt, self.wdir/smp['id'].split('.')[0]/'gt.nii.gz')
+                sitk.WriteImage(p, self.wdir/smp['id'].split('.')[0]/'pred.nii.gz')
+            res = evaluation_function(pred, smp['location_mask'])
+            res['modality'] = smp['modality']
+            results.append(res)
+            
+            if self.use_perf:
+                cc, n = label(smp['location_mask'])
+                for i in range(1, n+1):
+                    slc = cc==i
+                    gt_v=np.median(smp['location_mask'][slc])
+                    pred_v=np.median(pred[slc])
+                    if gt_v!=pred_v:
+                        discrepancies[smp['id']+f'_{i}']={'GT':mapping[gt_v],'Predicted':mapping[pred_v]}
+            
+            
+        aggregates = evaluation_aggregation(results)
+        averages = evaluation_average(aggregates)
+        print('Results:')
+        pprint(averages)
+        return results, aggregates, averages, discrepancies
+    
+    def re_eval_by_modality(self, results, path):
+        path = Path(path)
+        
+        mr = [smp for smp in results if smp['modality']=='MRA']
+        ct = [smp for smp in results if smp['modality']=='CTA']
+        
+        aggregates_mr = evaluation_aggregation(mr)
+        averages_mr = evaluation_average(aggregates_mr, ignore_absent=False)
+        print('Results MRA:')
+        pprint(averages_mr)
+        self.plot(aggregates_mr, path/'per_cls_mr', 'Per Class Aggregates MRA')
+        with open(path/'per_cls_mr.json', 'w') as f:
+            json.dump(averages_mr, f, indent=4)
+        
+        aggregates_ct = evaluation_aggregation(ct)
+        averages_ct = evaluation_average(aggregates_ct, ignore_absent=False)
+        print('Results CTA:')
+        pprint(averages_ct)
+        self.plot(aggregates_ct, path/'per_cls_ct', 'Per Class Aggregates CTA')
+        with open(path/'per_cls_ct.json', 'w') as f:
+            json.dump(averages_ct, f, indent=4)
+    
+    def plot(self, aggregates, path, title='Per Class Aggregates'):
+        with open('/home/tue20260926/Repos/TopAneu-26/topaneu_release/location_mapping.json', 'r') as f:
+            mapping = {v:k for k, v in json.load(f)['labels'].items()}
+        metrics_by_class = {}
+        for i in range(1, 53):
+            cur_vals = {
+                'Precision': aggregates[f'PRECISION_{i}'],
+                'Recall': aggregates[f'RECALL_{i}'],
+                'MCC': aggregates[f'MCC_{i}'],
+                'Dice': aggregates[f'DICE_{i}'],
+                'VolSim': aggregates[f'VOLSIM_{i}'],
+                'HD95': aggregates[f'HD95_{i}']
+            }
+            metrics_by_class[mapping[i]]=cur_vals
+        
+        
+        heatmap(metrics_by_class, title, str(path)+"_heatmap.png")
+        spider(metrics_by_class, title, str(path)+"_cluttered_spider.png")
+        decluttered_spider(metrics_by_class, title, str(path)+"_spider.png")

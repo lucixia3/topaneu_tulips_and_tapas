@@ -30,7 +30,8 @@ class LossHistory():
     def has_converged(self, patience, tol=1e-4):
         if patience is None: return False
         if len(self.val_loss)<patience: return False
-        return not any([f<self.val_loss[-patience] for f in self.val_loss[patience-1:]])
+        within_patience = self.val_loss[-patience:]
+        return not min(within_patience)<within_patience[0]-tol
     
     def min(self):
         e, v = min(enumerate(self.val_loss), key=lambda x: x[1])

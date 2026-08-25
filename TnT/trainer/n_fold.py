@@ -12,6 +12,7 @@ from TnT.model.ensemble import Ensemble
 
 class NFoldTrainer():
     def __init__(self, n_folds=2, batch_size=4, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, device='cuda'):
+        raise NotImplementedError('This trainer is deprecated and therefore outdated with regards to key features present in TnT.trainer.base.BasicTrainer')
         self.lr = lr
         self.optim = optim
         self.sched = sched

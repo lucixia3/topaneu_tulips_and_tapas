@@ -50,6 +50,7 @@ def get_train_test_transforms(patch_size_vx):
         
         # ---- Spatial stuff ----
         RandomFlipLaterality(0.5),
+        NoisyCoordinates(0, 0.01, 0.01, 0.5),
         
         # ---- Custom stuff ----
         RandomMask(0.2),
@@ -396,6 +397,7 @@ class RandomFlipLaterality():
     
     def __call__(self, dct):
         if self.execute: 
+            dct['coords'][self.laterality_dimension] = 1-dct['coords'][self.laterality_dimension]
             if dct['image'].dim() == 3:
                 dct['image'] = torch.flip(dct['image'], dims=[self.aterality_dimension])
                 dct['laterality'] = self._flip_laterality(dct['laterality'])
@@ -405,3 +407,31 @@ class RandomFlipLaterality():
                 dct['laterality'] = self._flip_laterality(dct['laterality'])
             return dct
         else: return dct
+
+
+class NoisyCoordinates():
+    def __init__(self, mean=0, std_mr=0.01, std_ct=0.01, prob=0.9):
+        self.mean = mean
+        self.std_mr = std_mr
+        self.std_ct = std_ct
+        self.prob = prob
+        
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+    
+    def __call__(self, dct):
+        if dct['modality']=='CTA':return dct ## bypass in CTA case
+        if self.execute:
+            dct["coords"]= torch.clip(dct["coords"]+torch.randn_like(dct["coords"]) * (self.std_ct if dct['modality']=='CTA' else self.std_mr)+ self.mean, 0, 1)
+        return dct
+    
+class ClipCtaIntensities():
+    def __init__(self, lower=-200, upper=800):
+        self.lower=lower
+        self.upper=upper
+        
+    def __call__(self, dct):
+        if dct['modality']=='CTA':
+            dct['image'][0] = torch.clip(dct['image'][0], self.lower, self.upper)
+        return dct
