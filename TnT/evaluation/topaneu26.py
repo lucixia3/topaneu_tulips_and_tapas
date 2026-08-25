@@ -8,7 +8,7 @@ from typing import Union, List, Tuple, Literal
 from scipy.ndimage import label, binary_erosion
 from scipy.spatial import cKDTree
 import matplotlib.pyplot as plt 
-from TnT.evaluation.plotting import heatmap, spider
+from TnT.evaluation.plotting import heatmap, spider, decluttered_spider
 
 
 N_CLASSES = 52
@@ -466,5 +466,6 @@ class TopAneu26LikeEvaluator():
         
         
         heatmap(metrics_by_class, title, str(path)+"_heatmap.png")
-        spider(metrics_by_class, title, str(path)+"_spider.png")
+        spider(metrics_by_class, title, str(path)+"_cluttered_spider.png")
+        decluttered_spider(metrics_by_class, title, str(path)+"_spider.png")
 

@@ -162,9 +162,9 @@ class CaseDL(TopAneu_TnTs2_DS):
         self.spacing = spacing
         self.patch_size_mm = patch_size_mm
         vbb_coords = np.argwhere(self.vmask) # VBB = Vessel Bounding Box
-        vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
-        vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
-        vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
+        vbb_d = [int(np.min(vbb_coords[:, 0])), int(np.max(vbb_coords[:, 0]))]
+        vbb_h = [int(np.min(vbb_coords[:, 1])), int(np.max(vbb_coords[:, 1]))]
+        vbb_w = [int(np.min(vbb_coords[:, 2])), int(np.max(vbb_coords[:, 2]))]
         self.vbb = [vbb_d, vbb_h, vbb_w]
         self.vbb_shape = [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])]
         

@@ -25,36 +25,39 @@ from scipy.ndimage import binary_dilation, binary_erosion, grey_dilation, grey_e
 def get_inference_transforms(patch_size_vx):
     return Compose([
             MaybeToTensor(),
-            ClipCtaIntensities(),
+            #ClipCtaIntensities(),
             MaybeResize(size=patch_size_vx),
             BinarizeAneuChannel(),
             BinarizeVesselChannel(),
-            AdaNorm.make(ct_clipped=True),
+            AdaNorm.make(ct_clipped=False),
         ])
 
 def get_train_test_transforms(patch_size_vx):
     test_transforms = Compose([
         LabelEncoder(),
         MaybeToTensor(),
-        ClipCtaIntensities(),
+        #ClipCtaIntensities(),
         MaybeResize(size=patch_size_vx),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
-        AdaNorm.make(ct_clipped=True),
+        AdaNorm.make(ct_clipped=False),
     ])
     
     train_transforms = Compose([
         LabelEncoder(),
         MaybeToTensor(),
-        ClipCtaIntensities(),
+        #ClipCtaIntensities(),
         MaybeResize(patch_size_vx),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
         
         # ---- Spatial stuff ----
         RandomFlipLaterality(0.5),
+        # RandomFlipDepth(0.5),
+        # RandomFlipHeight(0.5),
         
-        NoisyCoordinates(0, 0.05, 0.9),
+        NoisyCoordinates(0, 0.025, 0.025, 0.5),
+        CoordinateDropout(0.25),
         
         # ---- Custom stuff ----
         RandomMask(0.2),
@@ -62,7 +65,7 @@ def get_train_test_transforms(patch_size_vx):
         RandomNonCorrespondingMorph(0.2),
 
         # ---- Intensity-only transforms: image channel exclusively ----
-        AdaNorm.make(ct_clipped=True),
+        AdaNorm.make(ct_clipped=False),
         ImageTransformWrapper(
             RandGaussianNoise(prob=0.2, mean=0.0, std=0.05),
             apply_to=['image']
@@ -192,7 +195,7 @@ class AdaNorm():
     @staticmethod
     def make(ct_clipped=True):
         if ct_clipped: return AdaNorm(105.64747174811804, 128.1358337638573, 63.98932940740848, 279.77159725605)
-        else: return AdaNorm(105.64747174811804, 128.1358337638573, -111.44454449849296, 648.8878738938635)
+        else: return AdaNorm(311.7783241351976, 226.50190118254997, -125.36350339401929, 647.2861290527815)#AdaNorm(105.64747174811804, 128.1358337638573, -111.44454449849296, 648.8878738938635)
     
     @staticmethod
     def compute_mean_std(dataset):
@@ -435,9 +438,10 @@ class RandomFlipLaterality():
         else: return dct
 
 class NoisyCoordinates():
-    def __init__(self, mean=0, std=0.2, prob=0.9):
+    def __init__(self, mean=0, std_mr=0.1, std_ct=0.25, prob=0.9):
         self.mean = mean
-        self.std = std
+        self.std_mr = std_mr
+        self.std_ct = std_ct
         self.prob = prob
         
     @property
@@ -446,5 +450,67 @@ class NoisyCoordinates():
     
     def __call__(self, dct):
         if self.execute:
-            dct["coords"]= torch.clip(dct["coords"]+torch.randn_like(dct["coords"]) * self.std + self.mean, 0, 1)
+            dct["coords"]= torch.clip(dct["coords"]+torch.randn_like(dct["coords"]) * (self.std_ct if dct['modality']=='CTA' else self.std_mr)+ self.mean, 0, 1)
         return dct
+    
+class CoordinateDropout():
+    def __init__(self, prob=0.25):
+        self.prob = prob
+        
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+    
+    def __call__(self, dct):
+        if self.execute:
+            dct["coords"][random.choice([0,1,2])]=0
+        return dct
+    
+class MuteCoords():
+    def __call__(self, dct):
+        dct['coords']=torch.zeros_like(dct['coords'])
+        return dct
+    
+class RandomFlipDepth():
+    def __init__(self, prob):
+        self.prob = prob
+        # 4D array: [C, H, D, W]
+        self.d4_dimension = 2
+        self.d3_dimension = 1
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+
+    
+    def __call__(self, dct):
+        if self.execute: 
+            #dct['coords'][self.d3_dimension] = 1-dct['coords'][self.d3_dimension] no coordinate uptade, because the location in this flip is relatively the same as the origin of the vbb is also flipped
+            if dct['image'].dim() == 3:
+                dct['image'] = torch.flip(dct['image'], dims=[self.d3_dimension])
+            
+            else:
+                dct['image'] = torch.flip(dct['image'], dims=[self.d4_dimension])
+            return dct
+        else: return dct
+        
+class RandomFlipHeight():
+    def __init__(self, prob):
+        self.prob = prob
+        # 4D array: [C, H, D, W]
+        self.d4_dimension = 1
+        self.d3_dimension = 0
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+
+    
+    def __call__(self, dct):
+        if self.execute: 
+            #dct['coords'][self.d3_dimension] = 1-dct['coords'][self.d3_dimension] no coordinate uptade, because the location in this flip is relatively the same as the origin of the vbb is also flipped
+            if dct['image'].dim() == 3:
+                dct['image'] = torch.flip(dct['image'], dims=[self.d3_dimension])
+            
+            else:
+                dct['image'] = torch.flip(dct['image'], dims=[self.d4_dimension])
+            return dct
+        else: return dct

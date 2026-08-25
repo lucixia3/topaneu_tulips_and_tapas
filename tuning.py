@@ -27,6 +27,7 @@ if __name__ == '__main__':
     PATCH_SIZE_VX = 64 # to avoid oom error on local
     BATCH_SIZE = 4
     EARLY_STOP_PATCHING = False
+    LR = 3e-4
     
     ## Do splits
     # ds = TopAneu_TnTs2_DS("/home/tue20260926/Data/topaneu_deployment")
@@ -41,14 +42,14 @@ if __name__ == '__main__':
     ## load splits
     if not os.path.exists('tuning-train.json'):
         train = TopAneu_TnTs2_DS.load('train.json', train_transforms)
-        train.preprocess(include_bg=0.2, include_pred=False, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1, filter={'filename': 'center1'})
+        train.preprocess(include_bg=0.2, include_pred=False, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1)
         train.save('tuning-train.json')
     else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms)
     train.wdir = 'tuning-train'
     
     if not os.path.exists('tuning-val.json'):
         val = TopAneu_TnTs2_DS.load('val.json', transforms)
-        val.preprocess(include_bg=0.2, include_pred=False, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1)
+        val.preprocess(include_bg=False, include_pred=False, include_syn=False, max_items=1 if EARLY_STOP_PATCHING else -1)
         val.save('tuning-val.json')
     else: val = TopAneu_TnTs2_DS.load('tuning-val.json', transforms)
     val.wdir = 'tuning-val'
@@ -63,25 +64,53 @@ if __name__ == '__main__':
     tr_ct, tr_mr = train.separate_by_modality()
     vl_ct, vl_mr = val.separate_by_modality()
     te_ct, te_mr = test.separate_by_modality()
+    pretrained = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new'
+    wdir = Path(datetime.datetime.now().strftime(r'TnTS2_training_from-%H:%M:%S-%d.%m.%y'))
+    
     
     ## PrEP DL
+    #train.append(val)
+    train_dl = DataLoader(tr_ct, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    val_dl = DataLoader(vl_ct, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
+    test_dl = DataLoader(te_ct, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
+    
+    ## setup objs
+    trainer = BasicTrainer(lr=LR)
+    model = TnTS2()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
+    model.load(pretrained)
+    #model.tuning()
+    
+    ## train or load
+    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=200, early_stop=20, wdir=wdir/'CT', use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    #model = trainer.train(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    
+        ## PrEP DL
     #train.append(val)
     train_dl = DataLoader(tr_mr, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
     val_dl = DataLoader(vl_mr, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
     test_dl = DataLoader(te_mr, batch_size=1, shuffle=False, collate_fn=TnTs2_collate)
     
     ## setup objs
-    trainer = BasicTrainer(lr=1e-4)
+    trainer = BasicTrainer(lr=LR)
     model = TnTS2()#TnTS2.from_pretrained('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss')
-    model.load('/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new')
+    model.load(pretrained)
+    #model.tuning()
     
     ## train or load
-    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=200, early_stop=20, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=200, early_stop=20, wdir=wdir/'MR', use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
     #model = trainer.train(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
 
-
+    
+    
     ## QnD test
-    print('#'*20, 'Testing ACC for Aneu', '#'*20)
+    model = TnTS2()
+    model.load(wdir/'CT'/'best_val_loss')
+    print('#'*20, 'CT - Testing ACC for Aneu', '#'*20)
     acc = trainer.test(model, test_dl, decoder=DecodeAneu(), target='aneu')
-    print('#'*20, 'Testing ACC for Vessel', '#'*20)
+    print('#'*20, 'CT - Testing ACC for Vessel', '#'*20)
+    acc = trainer.test(model, test_dl, decoder=DecodeVessel(), target='vessel')
+    model.load(wdir/'MR'/'best_val_loss')
+    print('#'*20, 'MR - Testing ACC for Aneu', '#'*20)
+    acc = trainer.test(model, test_dl, decoder=DecodeAneu(), target='aneu')
+    print('#'*20, 'MR - Testing ACC for Vessel', '#'*20)
     acc = trainer.test(model, test_dl, decoder=DecodeVessel(), target='vessel')

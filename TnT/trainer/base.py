@@ -5,7 +5,7 @@ from pathlib import Path
 import os, tqdm, torch, numpy as np, shutil, datetime, json
 from TnT.utils.transforms import DecodeAneu
 import matplotlib.pyplot as plt
-from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory
+from TnT.trainer.metrics import loc_lat_cls_acc, LossHistory, plot_logger
 import TnT.trainer.class_weigths as cw
 
 
@@ -49,25 +49,29 @@ class BasicTrainer():
             print(f'------------------- Epoch {e:{fmt}}/{epochs} -------------------')
             ## Training step
             model.train()
+            logger = {'aneu_ce':[], 'lat_ce':[], 'vessel_ce':[]}
             for batch in tqdm.tqdm(train_dl, desc='Training batches'):
                 self.optim.zero_grad()
-                if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device), weights=ac_weights)
+                if loss is None: l, logger = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device), weights=ac_weights, logger=logger)
                 else: 
                     lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
                     l = loss(lat, loc_v, loc_a, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                 l.backward()
                 self.optim.step()
                 loss_history.add_train(l)
+            loss_history.add_individual_train(logger)
             
             ## Validation step
             model.eval()
             with torch.no_grad():
+                logger = {'aneu_ce':[], 'lat_ce':[], 'vessel_ce':[]}
                 for batch in tqdm.tqdm(val_dl, desc='Validating batches'):
-                    if loss is None: l = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device), weights=ac_weights)
+                    if loss is None: l, logger = model.loss(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'], batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device), weights=ac_weights, compute_vloss=True, logger=logger)
                     else: 
                         lat, loc_v, loc_a = model(batch['image'].to(self.device), batch['coords'].to(self.device), batch['modality'])
                         l = loss(lat, loc_v, loc_a, batch['location_v'].to(self.device), batch['location_a'].to(self.device), batch['laterality'].to(self.device))
                     loss_history.add_val(l)
+                loss_history.add_individual_val(logger)
             
             ## scheduling
             self.sched.step()
@@ -87,6 +91,8 @@ class BasicTrainer():
             
             ## early stopping
             if loss_history.has_converged(early_stop):
+                best_epoch, best_loss = loss_history.min()
+                print(f'Convergence achieved after {best_epoch} epochs with validation loss {best_loss}')
                 break
         
         else:

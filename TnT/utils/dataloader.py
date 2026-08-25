@@ -119,9 +119,18 @@ class TopAneu_TnTs2_DS(Dataset):
             
             # get the associated vloc
             if np.any(multichannel_img[2]!=0):
-                msk = np.bitwise_and(binary_dilation(multichannel_img[2]!=0), binary_dilation(multichannel_img[1]!=0))
-                if np.any(msk): vessel_id = np.median(multichannel_img[2][msk].astype(np.uint8))
-                else: vessel_id = np.median(multichannel_img[2][multichannel_img[2]!=0].astype(np.uint8))
+                n_v = np.unique(multichannel_img[2])
+                dil_a = binary_dilation(multichannel_img[1].copy())
+                best_match = 0
+                best_match_intersect = 0
+                for lbl in n_v:
+                    if lbl == 0: continue
+                    cur_dil = binary_dilation(multichannel_img[2]==lbl)
+                    cur_intersect = np.sum(np.bitwise_and(cur_dil, dil_a))
+                    if cur_intersect > best_match_intersect:
+                        best_match_intersect = cur_intersect
+                        best_match = lbl
+                vessel_id = int(best_match)
             else: vessel_id = 0
             
             img_smp['vloc']= int(vessel_id)

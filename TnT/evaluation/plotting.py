@@ -90,6 +90,81 @@ def spider(data, suptitle, path):
     plt.close()
     return
 
+def base_category(name):
+    """Strip a leading 'L-' or 'R-' prefix so paired samples share an id."""
+    if name.startswith('L-') or name.startswith('R-'):
+        return name[2:]
+    return name
+
+
+def decluttered_spider(data, suptitle, path):
+    spoke_labels = list(next(iter(data.values())).keys())
+    N = len(spoke_labels)
+
+    rows = []
+    for i in range(1, 6):
+        cur_cols={'Left': [], 'N/A': [], 'Right': []}
+        for k, v in data.items():
+            if f"{i}." in k:
+                if k.startswith('L-'):
+                    v['name']=k
+                    cur_cols['Left'].append(v)
+                elif k.startswith('R-'):
+                    v['name']=k
+                    cur_cols['Right'].append(v)
+                else:
+                    v['name']=k
+                    cur_cols['N/A'].append(v)
+        rows.append(cur_cols)
+    theta = radar_factory(N, frame='polygon')
+    # --- build one color per category, shared across L-/R- versions -----
+    categories = sorted({base_category(v['name'])
+                         for row in rows for col in row.values() for v in col})
+    cmap = plt.get_cmap('tab20' if len(categories) <= 20 else 'hsv')
+    n_colors = 20 if len(categories) <= 20 else len(categories)
+    color_map = {cat: cmap(idx / max(n_colors - 1, 1))
+                for idx, cat in enumerate(categories)}
+ 
+    col_names = ['Left', 'N/A', 'Right']
+ 
+    fig, axs = plt.subplots(figsize=(15, 23), nrows=5, ncols=3,
+                            subplot_kw=dict(projection='radar'))
+    fig.subplots_adjust(wspace=0.5, hspace=0.6, top=0.94, bottom=0.03)
+ 
+    for row_idx, row in enumerate(rows):
+        for col_idx, col_name in enumerate(col_names):
+            ax = axs[row_idx, col_idx]
+            samples = row[col_name]
+            ax.set_title(f"{col_name}",
+                         weight='bold', size='small', position=(0.5, 1.15),
+                         horizontalalignment='center', verticalalignment='center')
+ 
+            if not samples:
+                # Same opaque 'N/A' placeholder treatment as an all-zero panel
+                ax.set_facecolor('#d9d9d9')
+                ax.patch.set_alpha(1.0)
+                ax.plot(theta, [0] * N, color='none')
+                ax.set_rgrids([0.2, 0.4, 0.6, 0.8], labels=[])
+                ax.set_varlabels([''] * N)
+                ax.text(0.5, 0.5, 'N/A', transform=ax.transAxes, ha='center',
+                        va='center', fontsize=14, weight='bold', color='dimgray')
+                continue
+ 
+            ax.set_rgrids([0.2, 0.4, 0.6, 0.8])
+            for v in samples:
+                cat = base_category(v['name'])
+                color = color_map[cat]
+                values = [v[label] for label in spoke_labels]
+                ax.plot(theta, values, color=color, label=v['name'])
+                ax.fill(theta, values, facecolor=color, alpha=0.15)
+            ax.set_varlabels(spoke_labels)
+            ax.legend(loc='upper right', bbox_to_anchor=(1.4, 1.15),
+                      fontsize='xx-small', frameon=False)
+ 
+    plt.tight_layout()
+    plt.savefig(path, dpi=200, bbox_inches='tight')
+    plt.close()
+    return
 
 
 def radar_factory(num_vars, frame='circle'):

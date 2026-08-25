@@ -2,6 +2,7 @@ from sklearn.metrics import accuracy_score
 import numpy as np  
 import matplotlib.pyplot as plt 
 import json
+from statistics import mean
 
 def loc_lat_cls_acc(gts, preds):
     # print('----- EVALUATING -----')
@@ -20,6 +21,22 @@ class LossHistory():
         self.val_loss = []
         self.cur_val = []
         self.cur_train = []
+        self.individual_train = None
+        self.individual_val = None
+        
+    def add_individual_train(self, logger):
+        if self.individual_train is None:
+            self.individual_train = {k:[mean(v)] for k, v in logger.items()}
+        else:
+            for k in logger.keys():
+                self.individual_train[k].append(mean(logger[k]))
+    
+    def add_individual_val(self, logger):
+        if self.individual_val is None:
+            self.individual_val = {k:[mean(v)] for k, v in logger.items()}
+        else:
+            for k in logger.keys():
+                self.individual_val[k].append(mean(logger[k]))
     
     def add_train(self, l):
         self.cur_train.append(l.item())
@@ -30,7 +47,8 @@ class LossHistory():
     def has_converged(self, patience, tol=1e-4):
         if patience is None: return False
         if len(self.val_loss)<patience: return False
-        return not any([f<self.val_loss[-patience] for f in self.val_loss[patience-1:]])
+        within_patience = self.val_loss[-patience:]
+        return not min(within_patience)<within_patience[0]-tol
     
     def min(self):
         e, v = min(enumerate(self.val_loss), key=lambda x: x[1])
@@ -49,6 +67,9 @@ class LossHistory():
     def plot_progress(self, wdir):
         plt.plot(self.train_loss, label='training loss')
         plt.plot(self.val_loss, label='validation loss')
+        for k in self.individual_val.keys():
+            plt.plot(self.individual_val[k], label=f'validation {k} loss')
+            plt.plot(self.individual_train[k], label=f'training {k} loss')
         plt.ylabel('loss')
         plt.yscale('log')
         plt.xlabel('epoch')
@@ -62,8 +83,22 @@ class LossHistory():
             json.dump(
                 {
                     'train': self.train_loss,
-                    'val': self.val_loss
+                    'val': self.val_loss,
+                    'train_individual': self.individual_train,
+                    'val_individual': self.individual_val
                 },
                 f, 
                 indent=4
             )
+
+def plot_logger(logger, path):
+    for k, v in logger.items():
+        plt.plot(v, label=k)
+    plt.ylabel('loss')
+    plt.yscale('log')
+    plt.xlabel('batch')
+    plt.legend()
+    plt.title(f'Training/Validation loss per batch')
+    plt.savefig(path)
+    plt.close()
+    plt.clf()

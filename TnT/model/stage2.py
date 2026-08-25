@@ -27,9 +27,9 @@ class TnTS2(nn.Module):
         modality_flag = torch.tensor([m == 'MRA' for m in modalities], dtype=torch.uint8, device=coords.device).unsqueeze(1)
         x = torch.concat([x, coords, modality_flag], dim=-1)
         lat = self.laterality(x)
-        loc_v = self.location_vessel(x)
+        loc_v = self.location_vessel(x.detach()) ## detach such that only the aneu and lat grad reaches the bb, the v head learns from that output only and cant manipulate it
         
-        loc_a = self.location_aneu(torch.concat([x, loc_v.detach()], dim=-1))
+        loc_a = self.location_aneu(torch.concat([x, loc_v.detach()], dim=-1)) # v signal detached such that the vhead can learn in peace
 
         if unbatched:
             lat = lat.squeeze(0)
@@ -83,7 +83,7 @@ class TnTS2(nn.Module):
         model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))
         return model
         
-    def loss(self, patch, coords, modalities, targets_v, targets_a, targets_lat, weights):
+    def loss(self, patch, coords, modalities, targets_v, targets_a, targets_lat, weights, compute_vloss=True, logger=None):
         unbatched = isinstance(modalities, str)
         if unbatched:
             modalities = [modalities]
@@ -93,9 +93,29 @@ class TnTS2(nn.Module):
         lat, loc_v, loc_a = self.forward(patch, coords, modalities)
         
         loc_a_loss = F.cross_entropy(loc_a, targets_a, weight=weights)
-        loc_v_loss = F.cross_entropy(loc_v, targets_v)
         lat_loss = F.cross_entropy(lat, targets_lat)
-        return loc_a_loss+loc_v_loss+lat_loss
+        if logger is not None:logger['aneu_ce'].append(loc_a_loss.item())
+        if logger is not None:logger['lat_ce'].append(lat_loss.item())
+        if compute_vloss:
+            loc_v_loss = F.cross_entropy(loc_v, targets_v)*0.5
+            if logger is not None:logger['vessel_ce'].append(loc_v_loss.item())
+            if logger is None: return loc_a_loss+loc_v_loss+lat_loss
+            else: return loc_a_loss+loc_v_loss+lat_loss, logger
+        else: 
+            if logger is None: return loc_a_loss+lat_loss
+            else: loc_a_loss+lat_loss, logger
+            
+    def pretraining(self):
+        for param in self.bb.parameters():
+            param.requires_grad=True
+        # for param in self.laterality.parameters():
+        #     param.requires_grad=True
+
+    def tuning(self):
+        for param in self.bb.parameters():
+            param.requires_grad=False
+        # for param in self.laterality.parameters():
+        #     param.requires_grad=False
     
 class TnTS2_ViT(nn.Module):
     def __init__(self, n_locs_v=21, n_locs_a=29, n_lats=2):
