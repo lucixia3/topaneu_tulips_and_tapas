@@ -7,6 +7,7 @@ import SimpleITK as sitk, numpy as np, torch
 from scipy.ndimage import label
 from pathlib import Path
 import torch.nn.functional as F
+from pathlib import Path
 
 class InferencePipeline():
     def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=False):
@@ -19,7 +20,12 @@ class InferencePipeline():
         
         ## the models
         if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path)
-        if s2_model_path is not None: self.s2_model = self._make_s2(s2_model_path)
+        if s2_model_path is not None: 
+            if isinstance(s2_model_path, TnTS2) or isinstance(s2_model_path, TnTS2_Specific): 
+                self.s2_model = s2_model_path
+                self.s2_model.to(self.device)
+                self.s2_model.eval()
+            else: self.s2_model = self._make_s2(s2_model_path)
 
     
     @torch.no_grad()  
@@ -161,10 +167,10 @@ class CaseDL(TopAneu_TnTs2_DS):
         self.cc, self.n = label(self.lmask)
         self.spacing = spacing
         self.patch_size_mm = patch_size_mm
-        vbb_coords = np.argwhere(self.vmask) # VBB = Vessel Bounding Box
-        vbb_d = [int(np.min(vbb_coords[:, 0])), int(np.max(vbb_coords[:, 0]))]
-        vbb_h = [int(np.min(vbb_coords[:, 1])), int(np.max(vbb_coords[:, 1]))]
-        vbb_w = [int(np.min(vbb_coords[:, 2])), int(np.max(vbb_coords[:, 2]))]
+        vbb_coords = np.argwhere(self.vmask).T # VBB = Vessel Bounding Box
+        vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
+        vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
+        vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
         self.vbb = [vbb_d, vbb_h, vbb_w]
         self.vbb_shape = [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])]
         

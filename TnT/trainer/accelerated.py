@@ -11,6 +11,7 @@ from TnT.model.stage2 import TnTS2Loss
 
 class AccelTrainer():
     def __init__(self, lr=1e-4, optim = Adam, sched = CosineAnnealingLR, device='cuda'):
+        raise NotImplementedError('This trainer is deprecated and therefore outdated with regards to key features present in TnT.trainer.base.BasicTrainer')
         self.lr = lr
         self.optim = optim
         self.sched = sched

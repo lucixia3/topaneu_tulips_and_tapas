@@ -468,4 +468,3 @@ class TopAneu26LikeEvaluator():
         heatmap(metrics_by_class, title, str(path)+"_heatmap.png")
         spider(metrics_by_class, title, str(path)+"_cluttered_spider.png")
         decluttered_spider(metrics_by_class, title, str(path)+"_spider.png")
-

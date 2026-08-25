@@ -53,11 +53,7 @@ def get_train_test_transforms(patch_size_vx):
         
         # ---- Spatial stuff ----
         RandomFlipLaterality(0.5),
-        # RandomFlipDepth(0.5),
-        # RandomFlipHeight(0.5),
-        
-        NoisyCoordinates(0, 0.025, 0.025, 0.5),
-        CoordinateDropout(0.25),
+        NoisyCoordinates(0, 0.01, 0.01, 0.5),
         
         # ---- Custom stuff ----
         RandomMask(0.2),
@@ -426,7 +422,7 @@ class RandomFlipLaterality():
     
     def __call__(self, dct):
         if self.execute: 
-            dct['coords'][2] = 1-dct['coords'][2]
+            dct['coords'][self.laterality_dimension] = 1-dct['coords'][self.laterality_dimension]
             if dct['image'].dim() == 3:
                 dct['image'] = torch.flip(dct['image'], dims=[self.laterality_dimension])
                 dct['laterality'] = self._flip_laterality(dct['laterality'])
@@ -437,8 +433,9 @@ class RandomFlipLaterality():
             return dct
         else: return dct
 
+
 class NoisyCoordinates():
-    def __init__(self, mean=0, std_mr=0.1, std_ct=0.25, prob=0.9):
+    def __init__(self, mean=0, std_mr=0.01, std_ct=0.01, prob=0.9):
         self.mean = mean
         self.std_mr = std_mr
         self.std_ct = std_ct
@@ -449,68 +446,17 @@ class NoisyCoordinates():
         return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
     
     def __call__(self, dct):
+        if dct['modality']=='CTA':return dct ## bypass in CTA case
         if self.execute:
             dct["coords"]= torch.clip(dct["coords"]+torch.randn_like(dct["coords"]) * (self.std_ct if dct['modality']=='CTA' else self.std_mr)+ self.mean, 0, 1)
         return dct
     
-class CoordinateDropout():
-    def __init__(self, prob=0.25):
-        self.prob = prob
+class ClipCtaIntensities():
+    def __init__(self, lower=-200, upper=800):
+        self.lower=lower
+        self.upper=upper
         
-    @property
-    def execute(self):
-        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
-    
     def __call__(self, dct):
-        if self.execute:
-            dct["coords"][random.choice([0,1,2])]=0
+        if dct['modality']=='CTA':
+            dct['image'][0] = torch.clip(dct['image'][0], self.lower, self.upper)
         return dct
-    
-class MuteCoords():
-    def __call__(self, dct):
-        dct['coords']=torch.zeros_like(dct['coords'])
-        return dct
-    
-class RandomFlipDepth():
-    def __init__(self, prob):
-        self.prob = prob
-        # 4D array: [C, H, D, W]
-        self.d4_dimension = 2
-        self.d3_dimension = 1
-    @property
-    def execute(self):
-        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
-
-    
-    def __call__(self, dct):
-        if self.execute: 
-            #dct['coords'][self.d3_dimension] = 1-dct['coords'][self.d3_dimension] no coordinate uptade, because the location in this flip is relatively the same as the origin of the vbb is also flipped
-            if dct['image'].dim() == 3:
-                dct['image'] = torch.flip(dct['image'], dims=[self.d3_dimension])
-            
-            else:
-                dct['image'] = torch.flip(dct['image'], dims=[self.d4_dimension])
-            return dct
-        else: return dct
-        
-class RandomFlipHeight():
-    def __init__(self, prob):
-        self.prob = prob
-        # 4D array: [C, H, D, W]
-        self.d4_dimension = 1
-        self.d3_dimension = 0
-    @property
-    def execute(self):
-        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
-
-    
-    def __call__(self, dct):
-        if self.execute: 
-            #dct['coords'][self.d3_dimension] = 1-dct['coords'][self.d3_dimension] no coordinate uptade, because the location in this flip is relatively the same as the origin of the vbb is also flipped
-            if dct['image'].dim() == 3:
-                dct['image'] = torch.flip(dct['image'], dims=[self.d3_dimension])
-            
-            else:
-                dct['image'] = torch.flip(dct['image'], dims=[self.d4_dimension])
-            return dct
-        else: return dct

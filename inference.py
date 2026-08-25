@@ -10,12 +10,12 @@ if __name__ == '__main__':
     PATCH_SIZE_MM = 35
     
     S1_path = '/home/tue20260926/Models/TopAneu-26/Stage1/nnUNetTrainer_single_encoder_mixed__nnUNetPlans__3d_fullres'
-    # S2_path = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_tune/TnTS2_training_from-12:41:52-18.08.26_clipping_and_new_stds/best_val_loss'
+    S2_path = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-15:24:43-25.08.26/best_val_loss'
     
-    S2_path = {
-        'ct':'/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-10:16:59-25.08.26/CT/best_val_loss',
-        'mr':'/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-10:16:59-25.08.26/MR/best_val_loss'
-    }
+    # S2_path = {
+    #     'ct':'/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-10:16:59-25.08.26/CT/best_val_loss',
+    #     'mr':'/home/tue20260926/Repos/topaneu_tulips_and_tapas/TnTS2_training_from-10:16:59-25.08.26/MR/best_val_loss'
+    # }
     
     ## Prep pipeline
     pl = InferencePipeline(S1_path, S2_path, PATCH_SIZE_VX, PATCH_SIZE_MM, use_tta=True)
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     ## Prep data
     test = TopAneuDS.load('test.json')
     ## Prep evaluator
-    outdir = 'results_tta_exp'
+    outdir = 'results_tta_exp_cflip_noisyc'
     ev = TopAneu26LikeEvaluator(pl, outdir, use_perfect_segmentations=True)
     res, agg, avg, disc = ev.eval_ds(test)#ev.eval_list(test.src, test.cases)
     with open(f'{outdir}/classification_failure.json', 'w') as f:

@@ -11,10 +11,16 @@ from TnT.model.stage2 import TnTS2
 class TnTS2_Specific(nn.Module):
     def __init__(self, mr_model_path, ct_model_path):
         super().__init__()
-        self.ct = TnTS2()
-        self.ct.load(ct_model_path)
-        self.mr = TnTS2()
-        self.mr.load(mr_model_path)
+        if isinstance(ct_model_path, TnTS2):
+            self.ct=ct_model_path
+        else:
+            self.ct = TnTS2()
+            self.ct.load(ct_model_path)
+        if isinstance(mr_model_path, TnTS2):
+            self.mr = mr_model_path
+        else:
+            self.mr = TnTS2()
+            self.mr.load(mr_model_path)
         
     def forward(self, patch, coords, modalities):
         assert not isinstance(modalities, str), 'only implemented for batched data!!!!'
