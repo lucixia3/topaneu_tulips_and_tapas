@@ -21,7 +21,7 @@ class InferencePipeline():
         ## the models
         if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path)
         if s2_model_path is not None: 
-            if isinstance(s2_model_path, TnTS2): 
+            if isinstance(s2_model_path, TnTS2) or isinstance(s2_model_path, TnTS2_Specific): 
                 self.s2_model = s2_model_path
                 self.s2_model.to(self.device)
                 self.s2_model.eval()

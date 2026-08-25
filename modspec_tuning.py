@@ -71,7 +71,7 @@ if __name__ == '__main__':
     
     ## QnD test
     trainer_ct.wdir=trainer_ct.wdir.parent
-    test = TopAneuDS('test.json')
+    test = TopAneuDS.load('test.json')
     print('#'*20, 'Testing TopAneu performance', '#'*20)
     model = TnTS2_Specific(model_mr, model_ct)
     acc = trainer_ct.test_TopAneu(model, test)
