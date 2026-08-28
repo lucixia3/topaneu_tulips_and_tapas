@@ -27,6 +27,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 4
     EARLY_STOP_PATCHING = False
     pt_source = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new'
+    LR = 3e-4
     
     ## Prep trans
     train_transforms, transforms = get_train_test_transforms(PATCH_SIZE_VX)
@@ -51,12 +52,12 @@ if __name__ == '__main__':
     ct_val, mr_val = val.separate_by_modality()
     
     ## setup working variables
-    wdir = Path(datetime.datetime.now().strftime(r'TnTS2_modespec_training_from-%H:%M:%S-%d.%m.%y'))
+    wdir = Path(datetime.datetime.now().strftime(r'TnTS2_modspec_training_from-%H:%M:%S-%d.%m.%y'))
     
     ## CT
     train_dl = DataLoader(ct_tr, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
     val_dl = DataLoader(ct_val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
-    trainer_ct = BasicTrainer()
+    trainer_ct = BasicTrainer(lr=LR)
     model_ct = TnTS2()
     model_ct.load(pt_source)
     model_ct = trainer_ct.train(model=model_ct, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=False, wdir=wdir/'CT')#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
@@ -64,7 +65,7 @@ if __name__ == '__main__':
     ## MR
     train_dl = DataLoader(mr_tr, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
     val_dl = DataLoader(mr_val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
-    trainer_mr = BasicTrainer()
+    trainer_mr = BasicTrainer(lr=LR)
     model_mr = TnTS2()
     model_mr.load(pt_source)
     model_mr = trainer_mr.train(model=model_mr, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=False, wdir=wdir/'MR')#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)

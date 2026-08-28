@@ -15,7 +15,7 @@ def get_s1(path, device, folds=(0,1,2,3,4,)):
                 device=torch.device(device),
                 verbose=False,
                 verbose_preprocessing=False,
-                allow_tqdm=True,
+                allow_tqdm=False,
             )
         
     predictor.initialize_from_trained_model_folder(

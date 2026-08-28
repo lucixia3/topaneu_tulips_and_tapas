@@ -132,19 +132,33 @@ class BasicTrainer():
         acc = loc_lat_cls_acc(gts_dec, preds_dec)
         
         print(f"Model achieved an accuracy of {acc}")
-        
+        with open(self.wdir/'acc.txt', 'w') as f:
+            f.write(f"Model achieved an accuracy of {acc}")
         return acc
     
     def test_TopAneu(self, model, testds):
+        print('----------- With Perfect Segmentations ----------')
         pl = InferencePipeline(None, model, 64, 35, use_tta=True)
-        outdir = self.wdir/'eval'
+        outdir = self.wdir/'eval'/'perfect'
         ev = TopAneu26LikeEvaluator(pl, outdir, use_perfect_segmentations=True)
-
         res, agg, avg, disc = ev.eval_ds(testds)#ev.eval_list(test.src, test.cases)
         with open(f'{outdir}/classification_failure.json', 'w') as f:
                 json.dump(disc, f, indent=4)
         os.makedirs(outdir, exist_ok=True)
-        ev.plot(agg, f'{outdir}/per_clas')
+        ev.plot(agg, f'{outdir}/per_cls')
+        ev.re_eval_by_modality(res, outdir)
+        with open(f'{outdir}/per_cls.json', 'w') as f:
+            json.dump(avg, f, indent=4)
+        
+        print('----------- With Stage 1 Segmentations ----------')
+        pl = InferencePipeline('/home/tue20260926/Models/TopAneu-26/Stage1/nnUNetTrainer_single_encoder_mixed__nnUNetPlans__3d_fullres', model, 64, 35, use_tta=True)
+        outdir = self.wdir/'eval'/'with_s1'
+        ev = TopAneu26LikeEvaluator(pl, outdir, use_perfect_segmentations=False)
+        res, agg, avg, disc = ev.eval_ds(testds)#ev.eval_list(test.src, test.cases)
+        with open(f'{outdir}/classification_failure.json', 'w') as f:
+                json.dump(disc, f, indent=4)
+        os.makedirs(outdir, exist_ok=True)
+        ev.plot(agg, f'{outdir}/per_cls')
         ev.re_eval_by_modality(res, outdir)
         with open(f'{outdir}/per_cls.json', 'w') as f:
             json.dump(avg, f, indent=4)

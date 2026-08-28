@@ -73,18 +73,12 @@ if __name__ == '__main__':
     
     ## setup objs
     trainer = BasicTrainer(lr=1e-3)
-    model = TnTS2()#.from_pretrained("/home/20260926/TnT/Batch2_legacy/TnTS2_pretraining_from-13:40:57-04.08.26/best_val_loss")
+    model = TnTS2()
     loss = TnTS2Loss(model.n_locs_v, model.n_locs_a)
     
     ## train or load
     model = trainer.train(model, train_dl, val_dl, 200, 10, wdir=Path(datetime.datetime.now().strftime(r'TnTS2_pretraining_from-%H:%M:%S-%d.%m.%y')), loss=loss)
 
     ## QnD test
-    # print('#'*20, 'Training ACC', '#'*20)
-    # train = TopAneu_TnTs2_DS_for_vessel_pt.load('pre-ves-train.json', transforms)
-    # train_dl = DataLoader(train, batch_size=4, shuffle=True)
-    # acc = trainer.test(model, train_dl, decoder=DecodeTargetForVessels())
-    # print('#'*20, 'Validation ACC', '#'*20)
-    # acc = trainer.test(model, val_dl, decoder=DecodeTargetForVessels())
     print('#'*20, 'Testing ACC', '#'*20)
     acc = trainer.test(model, test_dl, decoder=DecodeVessel(), target='vessel')

@@ -3,6 +3,7 @@ from pathlib import Path
 import os, tqdm, SimpleITK as sitk, json, numpy as np, random, torch, copy
 from scipy.ndimage import label, binary_erosion, binary_dilation
 from pprint import pprint
+from TnT.model.stage1 import get_s1
 
 class TopAneuDS(Dataset):
     def __init__(self, source, transforms=None, load_type_mask=False, cases=None):
@@ -62,12 +63,13 @@ class TopAneuDS(Dataset):
     
 class TopAneu_TnTs2_DS(Dataset):
     ########################### builtins
-    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50, wdir=None):
+    def __init__(self, source, transforms=None, cases=None, patch_size_mm=50, wdir=None, s1_path=None):
         self.image_ds = TopAneuDS(source, transforms=None, load_type_mask=False, cases=cases)
         self.aneus = []
         self.transforms = transforms
         self.patch_size_mm = patch_size_mm
         self.wdir = wdir
+        self.s1_predictor = get_s1(s1_path) if s1_path is not None else None
         
     def __len__(self):
         return len(self.aneus)
@@ -98,17 +100,25 @@ class TopAneu_TnTs2_DS(Dataset):
                 ], axis=0
             )
             
-            if smp['location']==0: # if it is one the bg patches need to gen a random sphere
-                multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
-            
             # get the associated vloc
             if np.any(multichannel_img[2]!=0):
                 msk = np.bitwise_and(binary_dilation(multichannel_img[2]!=0), binary_dilation(multichannel_img[1]!=0))
                 if np.any(msk): vessel_id = np.median(multichannel_img[2][msk].astype(np.uint8))
                 else: vessel_id = np.median(multichannel_img[2][multichannel_img[2]!=0].astype(np.uint8))
             else: vessel_id = 0
-            
             img_smp['vloc']= int(vessel_id)
+            
+            # make random sphere for synthetic patches
+            if smp['make_syn_aneu_msk']: 
+                multichannel_img = self._put_random_sphere_as_aneu(multichannel_img, img_smp["spacing"])
+                
+            # use s1 predictor to make s1 realistic masks
+            if smp['trigger_s1']:
+                nnunet_spacing = img_smp['spacing'][::-1]
+                props = {"spacing": nnunet_spacing}
+                pred = self.s1_predictor.predict_single_npy_array(multichannel_img[0][None], props, None, None, False).squeeze().astype(np.uint8)
+                multichannel_img[2]=pred==1
+                multichannel_img[1]=pred==2
                 
             if self.wdir is not None:
                 np.save(self.wdir/f"{idx}.npy", multichannel_img)
@@ -120,8 +130,6 @@ class TopAneu_TnTs2_DS(Dataset):
             smp['coords'][1]-smp['vbb'][1][0],
             smp['coords'][2]-smp['vbb'][2][0]
         ]
-        
-
         
         dct = {
             'image': multichannel_img,
@@ -230,7 +238,9 @@ class TopAneu_TnTs2_DS(Dataset):
                     'modality': img_smp['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
                     'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
-                    'id': img_smp['id']
+                    'id': img_smp['id'],
+                    'trigger_s1': False,
+                    'make_syn_aneu_msk':False,
                 }
             
             bg_patches.append(smp)
@@ -264,7 +274,7 @@ class TopAneu_TnTs2_DS(Dataset):
     
     ###########################
     ########################### publics
-    def preprocess(self, include_bg=False, max_items=-1):
+    def preprocess(self, include_bg=False, include_s1_pred=False, syn_samples=False, max_items=-1):
         if self.is_patched: return
         self.aneus = []
         for i in tqdm.tqdm(range(len(self.image_ds)), desc='Patching'):
@@ -286,7 +296,9 @@ class TopAneu_TnTs2_DS(Dataset):
                     'modality': sample['modality'],
                     'vbb': [vbb_d, vbb_h, vbb_w],
                     'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
-                    'id': sample['id']
+                    'id': sample['id'],
+                    'trigger_s1': False,
+                    'make_syn_aneu_msk':False
                 }
                 self.aneus.append(smp)
             if i == max_items:break
@@ -297,6 +309,32 @@ class TopAneu_TnTs2_DS(Dataset):
         if include_bg:
             n_bg = round(n_real_patches*include_bg)
             extra_patches += self._make_bg_patches(n_bg)
+        if include_s1_pred:
+            for a in self.aneus:
+                cpy = copy.deepcopy(a)
+                cpy['trigger_s1']=True
+                extra_patches.append(cpy)
+        if syn_samples:
+            for smp in tqdm.tqdm(syn_samples, desc='Generating Synthetic Samples'):
+                match_idx = [i for i, c in enumerate(self.image_ds.cases) if c==(smp["id"]+"_0000.nii.gz")]
+                if len(match_idx)!=1: print(f"could not find {smp["id"]} in this fold"); continue
+                sample = self.image_ds[match_idx[0]]
+                vbb_coords = np.argwhere(sample['vessel_mask']).T # VBB = Vessel Bounding Box
+                vbb_d = [int(np.min(vbb_coords[0])), int(np.max(vbb_coords[0]))]
+                vbb_h = [int(np.min(vbb_coords[1])), int(np.max(vbb_coords[1]))]
+                vbb_w = [int(np.min(vbb_coords[2])), int(np.max(vbb_coords[2]))]
+                a = {
+                    'idx': match_idx[0], # the base image idx in the base dataset
+                    'coords': smp['coords'], # the centroid
+                    'location': smp['location'],
+                    'modality': sample['modality'],
+                    'vbb': [vbb_d, vbb_h, vbb_w],
+                    'vbb.shape': [int(vbb_d[1]-vbb_d[0]), int(vbb_h[1]-vbb_h[0]), int(vbb_w[1]-vbb_w[0])],
+                    'id': smp['id'],
+                    'trigger_s1': False,
+                    'make_syn_aneu_msk': True,
+                }
+                extra_patches.append(a)
             
         self.aneus+=extra_patches
         

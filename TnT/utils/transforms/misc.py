@@ -25,41 +25,46 @@ from scipy.ndimage import binary_dilation, binary_erosion, grey_dilation, grey_e
 def get_inference_transforms(patch_size_vx):
     return Compose([
             MaybeToTensor(),
+            ClipCtaIntensities(),
             MaybeResize(size=patch_size_vx),
             BinarizeAneuChannel(),
             BinarizeVesselChannel(),
-            AdaNorm.make(),
+            AdaNorm.make(True),
         ])
 
 def get_train_test_transforms(patch_size_vx):
     test_transforms = Compose([
         LabelEncoder(),
         MaybeToTensor(),
+        ClipCtaIntensities(),
         MaybeResize(size=patch_size_vx),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
-        AdaNorm.make(),
+        AdaNorm.make(True),
     ])
     
     train_transforms = Compose([
         LabelEncoder(),
         MaybeToTensor(),
+        ClipCtaIntensities(),
         MaybeResize(patch_size_vx),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
         
         # ---- Spatial stuff ----
         RandomFlipLaterality(0.5),
-        NoisyCoordinates(0, 0.01, 0.01, 0.5),
+        NoisyCoordinates(0, 0.05, 0.05, 0.5),
         
         # ---- Custom stuff ----
         RandomMask(0.2),
         RandomNonCorrespondingMask(0.2),
         RandomNonCorrespondingMorph(0.2),
+        
+        
 
         # ---- Intensity-only transforms: image channel exclusively ----
         ImageTransformWrapper(
-            RandGaussianNoise(prob=0.2, mean=0.0, std=0.05),
+            RandGaussianNoise(prob=0.2, mean=0.0, std=50),
             apply_to=['image']
         ),
         ImageTransformWrapper(
@@ -75,7 +80,7 @@ def get_train_test_transforms(patch_size_vx):
             apply_to=['image']
         ),
         ImageTransformWrapper(
-            RandShiftIntensity(prob=0.2, offsets=0.1),
+            RandShiftIntensity(prob=0.2, offsets=50),
             apply_to=['image']
         ),
         ImageTransformWrapper(
@@ -86,7 +91,7 @@ def get_train_test_transforms(patch_size_vx):
             RandHistogramShift(prob=0.1, num_control_points=(3, 5)),
             apply_to=['image']
         ),
-        AdaNorm.make(),
+        AdaNorm.make(True),
     ])
     
     return train_transforms, test_transforms
@@ -128,6 +133,7 @@ class MaybeToTensor():
     
 class MaybeResize():
     def __init__(self, size=64):
+        self.size = size
         spatial_size = (size, size, size)
         self.msk_resize = Resize(spatial_size=spatial_size, mode='nearest')
         self.img_resize = Resize(spatial_size=spatial_size, mode='trilinear', anti_aliasing=True)
@@ -154,10 +160,16 @@ class MaybeResize():
 
         return dct
     
+    def __repr__(self):
+        return f'Resize to {self.size} Voxels³'
+    
 class AdaNorm():
     def __init__(self, mr_mean, mr_std, ct_mean, ct_std):
         self.mr_mean, self.mr_std = mr_mean, mr_std
         self.ct_mean, self.ct_std = ct_mean, ct_std
+        
+    def __repr__(self):
+        return f"AdaNorm using mean/std  >  MR: {self.mr_mean}/{self.mr_std}  |  CT: {self.ct_mean}/{self.ct_std}"
 
     def __call__(self, dct):
         if dct['modality'] == 'CTA':
@@ -175,7 +187,8 @@ class AdaNorm():
         return dct
     
     @staticmethod
-    def make():
+    def make(clip=False):
+        if clip: return AdaNorm(105.64747174811804, 128.1358337638573, 63.98932940740848, 279.77159725605)
         return AdaNorm(311.7783241351976, 226.50190118254997, -125.36350339401929, 647.2861290527815)
     
     @staticmethod
@@ -265,6 +278,8 @@ class RandomMask():
             return dct
         else: raise AssertionError('TnT.utils.transforms.RandomMask only supports execution on 3D tensors or dicts')
         
+    def __repr__(self):
+        return f'RandomMask with {self.prob} chance'
         
 class RandomNonCorrespondingMask():
     """Mask out random regions, without correspondence across channels
@@ -285,10 +300,16 @@ class RandomNonCorrespondingMask():
             dct['image'][i, :] = self.trans(dct['image'][i, :])
         return dct
     
+    def __repr__(self):
+        return f'RandomNonCorrespondingMask with {self.prob} chance'
+    
 class RandomNonCorrespondingMorph():
     def __init__(self, prob, operator_diameter=[3, 5, 7]):
         self.prob = prob
         self.operator_diameter = operator_diameter
+        
+    def __repr__(self):
+        return f'RandomNonCorrespondingMorph with {self.prob} chance'
         
     @property
     def execute(self):
@@ -384,6 +405,9 @@ class RandomFlipLaterality():
         # 4D array: [C, H, D, W]
         self.channels_laterality_dimension = 3
         self.laterality_dimension = 2
+    
+    def __repr__(self):
+        return f'RandomFlipLaterality with {self.prob} chance'
         
     @property
     def execute(self):
@@ -416,12 +440,16 @@ class NoisyCoordinates():
         self.std_ct = std_ct
         self.prob = prob
         
+    def __repr__(self):
+        return f'NoisyCoordinates with {self.prob} chance; Adds noise with mean={self.mean} and CT-std={self.std_ct} | MR-std={self.std_mr}'
+        
     @property
     def execute(self):
         return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
     
     def __call__(self, dct):
-        if dct['modality']=='CTA':return dct ## bypass in CTA case
+        if self.std_ct is None and dct['modality']=='CTA':return dct ## bypass
+        if self.std_mr is None and dct['modality']=='MRA':return dct ## bypass
         if self.execute:
             dct["coords"]= torch.clip(dct["coords"]+torch.randn_like(dct["coords"]) * (self.std_ct if dct['modality']=='CTA' else self.std_mr)+ self.mean, 0, 1)
         return dct
@@ -435,3 +463,6 @@ class ClipCtaIntensities():
         if dct['modality']=='CTA':
             dct['image'][0] = torch.clip(dct['image'][0], self.lower, self.upper)
         return dct
+    
+    def __repr__(self):
+        return f'ClipCtaIntensities with lower={self.lower} and upper={self.upper}'

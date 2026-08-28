@@ -1,9 +1,10 @@
 from pprint import pprint
 from pathlib import Path
-import os, datetime, torch
+import os, datetime, torch, json
 from TnT.utils.dataloader import TopAneu_TnTs2_DS, TnTs2_collate, DataLoader, TopAneuDS
 from TnT.utils.transforms import get_train_test_transforms, DecodeAneu, DecodeVessel, Resample, RandomResample, RandomNonCorrespondingMask, RandomNonCorrespondingMorph, RandomMask, AdaNorm, Compose, MaybeToTensor, MaybeResize, BinarizeAneuChannel, BinarizeVesselChannel, ImageTransformWrapper
 from TnT.model.stage2 import TnTS2
+from TnT.model.stage1 import get_s1
 from TnT.trainer.base import BasicTrainer
 from TnT.trainer.n_fold import NFoldTrainer
 from monai.transforms import (
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     PATCH_SIZE_VX = 64 # to avoid oom error on local
     BATCH_SIZE = 4
     EARLY_STOP_PATCHING = False
-    pt_source = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_pretrain/new_architecture/new'
+    pt_source = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_tune/TnTS2_pretraining_from-18:10:21-22.08.26/best_val_loss'
     
     ## Prep trans
     train_transforms, transforms = get_train_test_transforms(PATCH_SIZE_VX)
@@ -34,9 +35,12 @@ if __name__ == '__main__':
     ## load splits
     if not os.path.exists('tuning-train.json'):
         train = TopAneu_TnTs2_DS.load('train.json', train_transforms)
-        train.preprocess(include_bg=0.2, max_items=1 if EARLY_STOP_PATCHING else -1)
+        train.s1_predictor = get_s1('/home/tue20260926/Models/TopAneu-26/Stage1/nnUNetTrainer_single_encoder_mixed__nnUNetPlans__3d_fullres', 'cuda')
+        with open('syn_data_recipe.json', 'r') as f:
+            syn = json.load(f)
+        train.preprocess(include_bg=0.2, include_s1_pred=False, syn_samples=False, max_items=1 if EARLY_STOP_PATCHING else -1)
         train.save('tuning-train.json')
-    else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms)
+    else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms); train.s1_predictor = get_s1('/home/tue20260926/Models/TopAneu-26/Stage1/nnUNetTrainer_single_encoder_mixed__nnUNetPlans__3d_fullres', 'cuda')
     train.wdir = 'tuning-train'
     
     if not os.path.exists('tuning-val.json'):
@@ -51,14 +55,20 @@ if __name__ == '__main__':
     val_dl = DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=TnTs2_collate)
     
     ## setup objs
-    trainer_ct = BasicTrainer()
+    trainer = BasicTrainer(lr=3e-4)
     model = TnTS2()
     model.load(pt_source)
     
     ## train or load
-    model = trainer_ct.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
+    model = trainer.train(model=model, train_dl=train_dl, val_dl=val_dl, epochs=20, early_stop=5, use_aneu_class_balancing=False)#(model=model, ds=train, train_trans=train_transforms, val_trans=transforms, epochs=20, early_stop=5)
 
     ## QnD test
-    test = TopAneuDS('test.json')
+    test = TopAneuDS.load('test.json')
     print('#'*20, 'Testing TopAneu performance', '#'*20)
-    acc = trainer_ct.test_TopAneu(model, test)
+    acc = trainer.test_TopAneu(model, test)
+    if not os.path.exists('tuning-test.json'):
+            test = TopAneu_TnTs2_DS.load('test.json', transforms)
+            test.preprocess(max_items=1 if EARLY_STOP_PATCHING else -1)
+            test.save('tuning-test.json')
+    else: test = TopAneu_TnTs2_DS.load('tuning-test.json', transforms)
+    acc = trainer.test(model, DataLoader(test, batch_size=1, shuffle=False, collate_fn=TnTs2_collate))
