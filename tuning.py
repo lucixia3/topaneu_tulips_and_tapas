@@ -27,10 +27,10 @@ if __name__ == '__main__':
     PATCH_SIZE_VX = 64 # to avoid oom error on local
     BATCH_SIZE = 4
     EARLY_STOP_PATCHING = False
-    pt_source = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_tune/TnTS2_pretraining_from-18:10:21-22.08.26/best_val_loss'
+    pt_source = '/home/tue20260926/Repos/topaneu_tulips_and_tapas/_tune/TnTS2_pretraining_from-18:40:13-30.08.26/best_val_loss'
     
     ## Prep trans
-    train_transforms, transforms = get_train_test_transforms(PATCH_SIZE_VX)
+    train_transforms, transforms = get_train_test_transforms(PATCH_SIZE_VX, False)
     
     ## load splits
     if not os.path.exists('tuning-train.json'):
@@ -38,7 +38,7 @@ if __name__ == '__main__':
         train.s1_predictor = get_s1('/home/tue20260926/Models/TopAneu-26/Stage1/nnUNetTrainer_single_encoder_mixed__nnUNetPlans__3d_fullres', 'cuda')
         with open('syn_data_recipe.json', 'r') as f:
             syn = json.load(f)
-        train.preprocess(include_bg=0.2, include_s1_pred=False, syn_samples=False, max_items=1 if EARLY_STOP_PATCHING else -1)
+        train.preprocess(include_bg=0.2, include_s1_pred=True, syn_samples=syn, max_items=1 if EARLY_STOP_PATCHING else -1)
         train.save('tuning-train.json')
     else: train = TopAneu_TnTs2_DS.load('tuning-train.json', train_transforms); train.s1_predictor = get_s1('/home/tue20260926/Models/TopAneu-26/Stage1/nnUNetTrainer_single_encoder_mixed__nnUNetPlans__3d_fullres', 'cuda')
     train.wdir = 'tuning-train'

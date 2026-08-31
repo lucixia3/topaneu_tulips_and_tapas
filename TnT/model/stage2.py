@@ -15,6 +15,7 @@ class TnTS2(nn.Module):
         self.laterality = nn.Linear(404, self.n_lats)
         self.location_vessel = nn.Linear(404, self.n_locs_v)
         self.location_aneu = nn.Linear(404+self.n_locs_v, self.n_locs_a) # in pretraining is the vessel classes
+        self.parent = None
         
     def forward(self, patch, coords, modalities):
         unbatched = isinstance(modalities, str)
@@ -73,11 +74,13 @@ class TnTS2(nn.Module):
         self.location_vessel.load_state_dict(torch.load(pth/'vessel.pth'))
         self.location_aneu.load_state_dict(torch.load(pth/'aneu.pth'))
         self.laterality.load_state_dict(torch.load(pth/'laterality.pth'))    
+        self.parent=pth
     
     @staticmethod
     def from_pretrained(pth):
         pth = pl.Path(pth)
         model = TnTS2()
+        model.parent=pth
         model.bb.load_state_dict(torch.load(pth/'bb.pth'))
         model.location_vessel.load_state_dict(torch.load(pth/'location.pth'))
         model.laterality.load_state_dict(torch.load(pth/'laterality.pth'))

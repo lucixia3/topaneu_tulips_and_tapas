@@ -22,38 +22,39 @@ from monai.transforms import (
 from monai.data import MetaTensor
 from scipy.ndimage import binary_dilation, binary_erosion, grey_dilation, grey_erosion, generate_binary_structure
 
-def get_inference_transforms(patch_size_vx):
+def get_inference_transforms(patch_size_vx, clipCT=True):
     return Compose([
             MaybeToTensor(),
-            ClipCtaIntensities(),
+            ClipCtaIntensities()if clipCT else Bypass(),
             MaybeResize(size=patch_size_vx),
             BinarizeAneuChannel(),
             BinarizeVesselChannel(),
-            AdaNorm.make(True),
+            AdaNorm.make(clipCT),
         ])
 
-def get_train_test_transforms(patch_size_vx):
+def get_train_test_transforms(patch_size_vx, clipCT=True):
     test_transforms = Compose([
         LabelEncoder(),
         MaybeToTensor(),
-        ClipCtaIntensities(),
+        ClipCtaIntensities() if clipCT else Bypass(),
         MaybeResize(size=patch_size_vx),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
-        AdaNorm.make(True),
+        AdaNorm.make(clipCT),
     ])
     
     train_transforms = Compose([
         LabelEncoder(),
         MaybeToTensor(),
-        ClipCtaIntensities(),
+        ClipCtaIntensities()if clipCT else Bypass(),
         MaybeResize(patch_size_vx),
         BinarizeAneuChannel(),
         BinarizeVesselChannel(),
         
         # ---- Spatial stuff ----
         RandomFlipLaterality(0.5),
-        NoisyCoordinates(0, 0.05, 0.05, 0.5),
+        NoisyCoordinates(0, 0.05, 0.05, 0.8),
+        RandomDropCoordinates(0.25),
         
         # ---- Custom stuff ----
         RandomMask(0.2),
@@ -61,10 +62,11 @@ def get_train_test_transforms(patch_size_vx):
         RandomNonCorrespondingMorph(0.2),
         
         
+        
 
         # ---- Intensity-only transforms: image channel exclusively ----
         ImageTransformWrapper(
-            RandGaussianNoise(prob=0.2, mean=0.0, std=50),
+            RandGaussianNoise(prob=0.8, mean=0.0, std=100),
             apply_to=['image']
         ),
         ImageTransformWrapper(
@@ -91,10 +93,16 @@ def get_train_test_transforms(patch_size_vx):
             RandHistogramShift(prob=0.1, num_control_points=(3, 5)),
             apply_to=['image']
         ),
-        AdaNorm.make(True),
+        AdaNorm.make(clipCT),
     ])
     
     return train_transforms, test_transforms
+
+class Bypass():
+    def __call__(self, dct):
+        return dct
+    def __repr__(self):
+        return 'None'
 
 class BinarizeVessels():
     def __call__(self, dct):
@@ -466,3 +474,26 @@ class ClipCtaIntensities():
     
     def __repr__(self):
         return f'ClipCtaIntensities with lower={self.lower} and upper={self.upper}'
+    
+class DropCoordinates():
+    def __call__(self, dct):
+        dct['coords']=torch.zeros_like(dct['coords'])
+        return dct
+    def __repr__(self):
+        return 'TnT.utils.transforms.misc.DropCoordinates removes coordinates'
+    
+class RandomDropCoordinates():
+    def __init__(self, prob):
+        self.prob=prob
+        
+    @property
+    def execute(self):
+        return random.choices([True, False], weights=[self.prob, 1-self.prob], k=1)[0]
+    
+    def __call__(self, dct):
+        if self.execute:
+            dct['coords']=torch.zeros_like(dct['coords'])
+        return dct
+
+    def __repr__(self):
+        return 'TnT.utils.transforms.misc.RandomDropCoordinates randomly removes coordinates'

@@ -21,6 +21,7 @@ class BasicTrainer():
     def _save_train_cfg(self, model, train_dl, val_dl, epochs, early_stop, wdir, use_aneu_class_balancing):
         with open(wdir/'train_cfg.txt', 'w') as f:
             f.write(f"Model: {model}\n")
+            f.write(f"Model parent: {model.parent}\n")
             f.write(f"Epochs: {epochs}\n")
             if early_stop is not None: f.write(f"Early stopping after {early_stop} epochs of no improvement\n")
             else: f.write(f"Early stopping disabled\n")
