@@ -496,4 +496,4 @@ class RandomDropCoordinates():
         return dct
 
     def __repr__(self):
-        return 'TnT.utils.transforms.misc.RandomDropCoordinates randomly removes coordinates'
+        return f'TnT.utils.transforms.misc.RandomDropCoordinates randomly removes coordinates with chance {self.prob}'
