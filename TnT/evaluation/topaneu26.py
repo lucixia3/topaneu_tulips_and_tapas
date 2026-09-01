@@ -8,6 +8,7 @@ from typing import Union, List, Tuple, Literal
 from scipy.ndimage import label, binary_erosion
 from scipy.spatial import cKDTree
 import matplotlib.pyplot as plt 
+from TnT.evaluation.mapping import location_mapping
 from TnT.evaluation.plotting import heatmap, spider, decluttered_spider
 
 
@@ -389,8 +390,7 @@ class TopAneu26LikeEvaluator():
         return results, aggregates_all, averages_all
     
     def eval_ds(self, testset):
-        with open('/home/tue20260926/Repos/TopAneu-26/topaneu_release/location_mapping.json', 'r') as f:
-            mapping = {v:k for k, v in json.load(f)['labels'].items()}
+        mapping = {v:k for k, v in location_mapping['labels'].items()}
         results = []
         discrepancies = {}
         for i in tqdm(range(len(testset)), desc='Evaluating'):
@@ -450,8 +450,7 @@ class TopAneu26LikeEvaluator():
             json.dump(averages_ct, f, indent=4)
     
     def plot(self, aggregates, path, title='Per Class Aggregates'):
-        with open('/home/tue20260926/Repos/TopAneu-26/topaneu_release/location_mapping.json', 'r') as f:
-            mapping = {v:k for k, v in json.load(f)['labels'].items()}
+        mapping = {v:k for k, v in location_mapping['labels'].items()}
         metrics_by_class = {}
         for i in range(1, 53):
             cur_vals = {
