@@ -10,10 +10,10 @@ import torch.nn.functional as F
 from pathlib import Path
 
 class InferencePipeline():
-    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=False):
+    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=False, transforms=None):
         
         self.patch_size_mm = patch_size_mm
-        self.s2_transforms = get_inference_transforms(patch_size_vx)
+        self.s2_transforms = transforms
         self.decoder = DecodeAneu()
         self.device = device
         self.tta = use_tta

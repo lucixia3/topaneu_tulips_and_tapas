@@ -137,9 +137,9 @@ class BasicTrainer():
             f.write(f"Model achieved an accuracy of {acc}")
         return acc
     
-    def test_TopAneu(self, model, testds):
+    def test_TopAneu(self, model, testds, test_trans, s1):
         print('----------- With Perfect Segmentations ----------')
-        pl = InferencePipeline(None, model, 64, 35, use_tta=True)
+        pl = InferencePipeline(None, model, 64, 35, use_tta=True, transforms=test_trans)
         outdir = self.wdir/'eval'/'perfect'
         ev = TopAneu26LikeEvaluator(pl, outdir, use_perfect_segmentations=True)
         res, agg, avg, disc = ev.eval_ds(testds)#ev.eval_list(test.src, test.cases)
@@ -152,7 +152,7 @@ class BasicTrainer():
             json.dump(avg, f, indent=4)
         
         print('----------- With Stage 1 Segmentations ----------')
-        pl = InferencePipeline('/home/tue20260926/Models/TopAneu-26/Stage1/nnUNetTrainer_single_encoder_mixed__nnUNetPlans__3d_fullres', model, 64, 35, use_tta=True)
+        pl = InferencePipeline(s1, model, 64, 35, use_tta=True)
         outdir = self.wdir/'eval'/'with_s1'
         ev = TopAneu26LikeEvaluator(pl, outdir, use_perfect_segmentations=False)
         res, agg, avg, disc = ev.eval_ds(testds)#ev.eval_list(test.src, test.cases)
