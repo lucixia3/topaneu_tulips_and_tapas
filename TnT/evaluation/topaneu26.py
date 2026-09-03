@@ -7,366 +7,207 @@ from pprint import pprint
 from typing import Union, List, Tuple, Literal
 from scipy.ndimage import label, binary_erosion
 from scipy.spatial import cKDTree
+from collections import Counter
 import matplotlib.pyplot as plt 
 from TnT.evaluation.mapping import location_mapping
 from TnT.evaluation.plotting import heatmap, spider, decluttered_spider
+from TnT.evaluation.metrics import hd95_single_label, dice_coefficient_single_label, vs_single_label
+
+N_CLASSES=52
 
 
-N_CLASSES = 52
-
-### copied from main
-def load_image_file_as_array(location: Path) -> np.ndarray:
-    """Load an image as a numpy array using sitk
-
-    Args:
-        location (Path): Path to the image
-
-    Returns:
-        np.ndarray: The image as a 3d array
+def extract_labels(array1: np.array, array2 = None) -> list[int]:
     """
-    result = sitk.ReadImage(location)
-    # Convert it to a Numpy array
-    return sitk.GetArrayFromImage(result)
+    Extracts unique sorted labels from array input(s)
+    if two arrays (such as gt and pred arrays) are input
+    extract union of labels in gt and pred masks
 
-def load_gt(fn: str) -> np.ndarray:
-    """Load a ground truth reference image for a given filepath
-
-    Args:
-        fn (str): The filename of the image
-
-    Returns:
-        np.ndarray: The correpsonding gt segmentation as a 3d array
+    WITHOUT background 0
     """
-    dir = Path("/opt/ml/input/data/ground_truth/location_masks")
-    return load_image_file_as_array(dir/fn.replace("_0000.mha", ".mha"))
+    if array2 is not None:
+        # numpy.union1d
+        # Will be flattened if not already 1D
+        labels = np.union1d(array1, array2)
+    else:
+        labels = np.unique(array1)
+    # print("labels = ", labels)
 
-def iou_fn(img1: np.ndarray, img2: np.ndarray, eps: float=1e-6) -> float:
-    """Compute the iou between two binary images
+    # remove background 0
+    filtered_labels = [int(x) for x in labels[labels != 0]]
+    # print(f"filtered_labels = {filtered_labels}")
+    return filtered_labels
 
-    Args:
-        img1 (np.ndarray): Image a
-        img2 (np.ndarray): Image b
-        eps (float, optional): Epsilon to avoid div by zero error. Defaults to 1e-6.
+def evaluation_function(pred: sitk.Image, gt: sitk.Image, execute_in_docker=True):
 
-    Returns:
-        float: The iou between a and b
-    """
-    if not np.any(img1) and not np.any(img2): return 1 # both 0 is perfect seg
-    elif not np.any(img1) or not np.any(img2): return 0 # only one zero is the worst possible segmentation
-    return (np.bitwise_and(img1, img2).sum()/(np.bitwise_or(img1, img2).sum())+eps)
+    if gt.GetSize() != pred.GetSize():
+        raise ValueError(
+            f"GT and prediction have different sizes: "
+            f"{gt.GetSize()} vs {pred.GetSize()}"
+        )
 
-def dice_fn(img1: np.ndarray, img2: np.ndarray, eps: float=1e-6) -> float:
-    """Compute the dice score between two binary images
+    result = {
+        "gt_filename": "N/A",
+    }
 
-    Args:
-        img1 (np.ndarray): Image a
-        img2 (np.ndarray): Image b
-        eps (float, optional): Epsilon to avoid div by zero error. Defaults to 1e-6.
+    gt_locs = extract_labels(sitk.GetArrayFromImage(gt))
+    pred_locs = extract_labels(sitk.GetArrayFromImage(pred))
 
-    Returns:
-        float: The dice score between a and b
-    """
-    if not np.any(img1) and not np.any(img2): return 1 # both 0 is perfect seg
-    elif not np.any(img1) or not np.any(img2): return 0 # only one zero is the worst possible segmentation
-    return ((2*np.bitwise_and(img1, img2).sum())/(img1.sum() + img2.sum() + eps))
+    for cls in range(1, N_CLASSES + 1):
+        # Detection based on segmentation
 
-def volsim_fn(img1: np.ndarray, img2: np.ndarray, eps: float=1e-6) -> float: # as described in https://pmc.ncbi.nlm.nih.gov/articles/PMC4533825/pdf/12880_2015_Article_68.pdf
-    """Compute the volumetric similarity between two binary images
+        # same as eval/task1/evaluate.py's evaluation_function
+        result[f"TP_{cls}"] = int(cls in pred_locs and cls in gt_locs)
+        result[f"TN_{cls}"] = int(cls not in pred_locs and cls not in gt_locs)
+        result[f"FP_{cls}"] = int(cls in pred_locs and cls not in gt_locs)
+        result[f"FN_{cls}"] = int(cls not in pred_locs and cls in gt_locs)
 
-    Args:
-        img1 (np.ndarray): Image a
-        img2 (np.ndarray): Image b
-        eps (float, optional): Epsilon to avoid div by zero error. Defaults to 1e-6.
+        # also report support
+        result[f"support_{cls}"] = int(cls in gt_locs)
 
-    Returns:
-        float: The volumetric similarity between a and b
-    """
-    if not np.any(img1) and not np.any(img2): return 1 # both 0 is perfect seg
-    elif not np.any(img1) or not np.any(img2): return 0 # only one zero is the worst possible segmentation
-    return 1 - (abs(img1.sum()-img2.sum())/(img1.sum()+img2.sum()+eps))
-
-def get_surface(img: np.ndarray) -> np.ndarray:
-    """Get the surface of the objects in a 3d binary image
-
-    Args:
-        img (np.ndarray): A 3d binary image
-
-    Returns:
-        np.ndarray: A 3d binary image containing only the surface of the input image
-    """
-    return img & ~binary_erosion(img)
-
-def hd_fn(img1: np.ndarray, img2: np.ndarray, perc: int=95, norm: bool=True) -> float: # NOTE this function is claude generated as my implementation with a double loop was too slow.
-    """Compute the percentile of the hausdorff distance between the surfaces of two objects in 3d space
-        In case of either mask being nonzero with the respective other being zero, will return the diagonal of the volume
-
-    Args:
-        img1 (np.ndarray): Image a
-        img2 (np.ndarray): Image b
-        perc (int, optional): The percentile. Defaults to 95.
-        norm (bool, optional): Whether to return absolute or normalized values. Normalized by the diagnoal of the volume. Defaults to True.
-
-    Returns:
-        float: The perc percentile of the bidirectional HD between a and b
-    """
-    diag = np.linalg.norm(img1.shape)
-    if not np.any(img1) and not np.any(img2): return 0 # both 0 is perfect seg
-    elif not np.any(img1) or not np.any(img2): return 1 if norm else diag # only one zero is the worst possible segmentation
-        
-    coords_a = np.argwhere(get_surface(img1))
-    coords_b = np.argwhere(get_surface(img2))
-
-    tree_b = cKDTree(coords_b)
-    tree_a = cKDTree(coords_a)
-
-    d_ab, _ = tree_b.query(coords_a)   # a -> nearest b
-    d_ba, _ = tree_a.query(coords_b)   # b -> nearest a
-    
-    hd = max(np.percentile(d_ab, perc),
-               np.percentile(d_ba, perc))
-
-    return hd/diag if norm else hd
-
-def extended_label(img: np.ndarray) -> Tuple[List[np.ndarray], List[int], int]:
-    """Get the connected components and labels for every class in a segmentation mask
-
-    Args:
-        img (np.ndarray): The segmentation mask
-
-    Returns:
-        Tuple[List[np.ndarray], List[int], int]: The connceted components for each class, the n components for each class and the total number of components in the image.
-    """
-    ccs = []
-    ns = []
-    present_cls = np.unique(img).tolist()
-    for cls in range(1, N_CLASSES+1):
-        if cls not in present_cls:
-            ccs.append(None)
-            ns.append(0)
+        # Segmentation metrics are undefined for true negatives.
+        if result[f"TN_{cls}"]:
+            result[f"DICE_{cls}"] = np.nan
+            result[f"HD95_{cls}"] = np.nan
+            result[f"VOLSIM_{cls}"] = np.nan
         else:
-            cc, n = label(img==cls)
-            ccs.append(cc)
-            ns.append(n)
-    return ccs, ns, sum(ns)
+            result[f"DICE_{cls}"] = dice_coefficient_single_label(
+                gt=gt,
+                pred=pred,
+                label=cls,
+            )
+            result[f"HD95_{cls}"] = hd95_single_label(
+                gt=gt,
+                pred=pred,
+                label=cls,
+            )[0]  # [hd95_score, hd100_score]
+            result[f"VOLSIM_{cls}"] = vs_single_label(
+                gt=gt,
+                pred=pred,
+                label=cls,
+            )
 
-def check_tp(img1: np.ndarray, img2: np.ndarray, threshold: float=0.3, method: Literal["intersection", "dice", "iou"]="intersection") -> bool:
-    """Check if two segmentations are a true positive
-
-    Args:
-        img1 (np.ndarray): Segmentation a
-        img2 (np.ndarray): Segmentation b
-        threshold (float, optional): The threshold to determin a tp. Defaults to 0.3.
-        method (Literal[&quot;intersection&quot;, &quot;dice&quot;, &quot;iou&quot;], optional): The metric to consider. Defaults to "intersection".
-
-    Raises:
-        ValueError: If the passed method is not supported
-
-    Returns:
-        bool: Whether the two input segmentation fulfill the TP criterion.
-    """
-    match method:
-        case "intersection":
-            return np.bitwise_and(img1, img2).sum() > threshold
-        case "dice":
-            return dice_fn(img1, img2) > threshold
-        case "iou":
-            return iou_fn(img1, img2) > threshold
-        case _:
-            raise ValueError(f"Invalid tp checking method '{method}'")
-
-def evaluation_function_instance_level(predictions: np.ndarray, filename: str) -> dict: # numpy array of the predictions and the filename 
-    """Computes the amount of TP, FP, TN, FN and the Dice Score, Volumetric Similarity and HD95 for the TPs for all possible classes for a given sample.
-
-    Args:
-        predictions (np.ndarray): The predicted segmentation
-        filename (str): The name of the corresponding image
-
-    Returns:
-        dict: The metrics.
-    """
-    gts = load_gt(filename)
-    gt_ccs, gt_n_per_aneu, gt_n_aneu = extended_label(gts)
-    pred_ccs, pred_n_per_aneu, pred_n_aneu = extended_label(predictions)
-    
-    results = {}
-    for cls in range(1, N_CLASSES+1):
-        gt = gt_ccs[cls-1]
-        pred = pred_ccs[cls-1]
-        
-        # eval seg per case
-        dsc = 0
-        hd95 = 0
-        vs = 0
-
-        # eval cls performance per instance
-        tp = 0
-        fp = 0
-        if pred_n_per_aneu[cls-1]>0 and gt_n_per_aneu[cls-1]>0: # if both are nonzero do the loop and look for matches
-            for i in range(1,pred_n_per_aneu[cls-1]+1):
-                is_tp = False
-                for j in range(1,gt_n_per_aneu[cls-1]+1):
-                    if check_tp(gt==j, pred==i, threshold=0, method="intersection"):
-                        hd95 += hd_fn(gt==j, pred==i, 95)
-                        vs += volsim_fn(gt==j, pred==i) 
-                        dsc += dice_fn(gt==j, pred==i)
-                        is_tp = True
-                        break
-                if is_tp: tp += 1
-                else: fp += 1
-            fn = gt_n_per_aneu[cls-1]-tp
-            tn = gt_n_aneu-(tp+fn)
-            
-        elif pred_n_per_aneu[cls-1]>0 and gt_n_per_aneu[cls-1]==0: # if no samples of the class available in the gt but there are any in the predictions, count everything as false positive, but also add the true negatives for the other classes
-            fp = pred_n_per_aneu[cls-1]
-            fn = 0
-            tn = gt_n_aneu
-            
-        elif pred_n_per_aneu[cls-1]==0 and gt_n_per_aneu[cls-1]>0: # if no samples of the class available in the predictions but there are any in the gt, count everything as false negative, but also add the true negatives for the other classes
-            fn = gt_n_per_aneu[cls-1]
-            tn = gt_n_aneu-fn
-            
-        else: # If there are no objects of a class in neither gt nor predictions, count only true negatives
-            fn = 0
-            tn = gt_n_aneu
-
-        results[f"DICE_{cls}"] = dsc
-        results[f"HD95_{cls}"] = hd95
-        results[f"VOLSIM_{cls}"] = vs
-        results[f"TP_{cls}"] = tp
-        results[f"FP_{cls}"] = fp
-        results[f"FN_{cls}"] = fn
-        results[f"TN_{cls}"] = tn
-    return results
-
-def evaluation_function(predictions: np.ndarray, gt: np.ndarray) -> dict:
-    """Computes the amount of TP, FP, TN, FN and the Dice Score, Volumetric Similarity and HD95 for the TPs for all possible classes for a given sample.
-
-    Args:
-        predictions (np.ndarray): The predicted segmentation
-        filename (str): The name of the corresponding image
-
-    Returns:
-        dict: The metrics.
-    """
-    
-    assert predictions.shape == gt.shape, f"Shape missmatch: GT={gt.shape}; Prediction={predictions.shape}"
-    
-    results = {}
-    gts = [elem for elem in np.unique(gt).tolist() if elem != 0]
-    n_aneu = len(gts)
-
-    for cls in range(1, N_CLASSES+1): 
-        ## check for presence and tp
-        is_in_pred = np.any(predictions==cls)
-        is_in_gt = np.any(gt==cls)
-        is_tp = check_tp(gt==cls, predictions==cls, 0, "intersection") if (is_in_gt and is_in_pred) else False
-        
-        ## comp tpfptnfn
-        tp = 1 if is_tp else 0
-        fp = 1 if (is_in_pred and not is_tp) else 0
-        fn = 1 if (is_in_gt and not is_tp) else 0
-        tn = n_aneu-(tp+fn)
-        
-        ## write to dict
-        results[f"TP_{cls}"] = tp
-        results[f"FP_{cls}"] = fp
-        results[f"FN_{cls}"] = fn
-        results[f"TN_{cls}"] = tn
-        
-        ## comp seg metrics if any examples of the class are available in either pred or gt. This check saves a lot of time for TNs of which we have a lot with 50 classes
-        if is_in_pred or is_in_gt:
-            results[f"DICE_{cls}"] = dice_fn(gt==cls, predictions==cls)
-            results[f"HD95_{cls}"] = hd_fn(gt==cls, predictions==cls, 95, True)
-            results[f"VOLSIM_{cls}"] = volsim_fn(gt==cls, predictions==cls)
-        else: ##NOTE these are true negatives, this means all segmentations are correct and should technically be DSC=1, VS=1, HD95=0, but this would really bias the evaluation, so 0s are counted and the values are only averaged for TP, FP and FN!
-            results[f"DICE_{cls}"] = 0
-            results[f"HD95_{cls}"] = 0
-            results[f"VOLSIM_{cls}"] = 0
+    return result
 
 
-            
-        
-    # results["INSTANCE_LEVEL"] = evaluation_function_instance_level(predictions, filename) omit for now.
+def evaluation_aggregation(results: list):
+    """Aggregate evaluation results by class across images.
 
-    return results
-    
+    Detection counts (TP, TN, FP, FN) are summed across images.
+    Then, precision, recall, and MCC are computed from the aggregated
+    counts for each class (division-by-zero returns NaN).
 
-def evaluation_aggregation(metrics: List[dict], eps: float=1e-6) -> dict: # epsilons to avoid div by 0 error
-    """Aggregates the metrics over all samples and computes the per class Precision, Recal and MCC and normalizes the Dice Score, Volumetric Similarity and HD95 by the total amount of all TP and FN for each class.
-
-    Args:
-        metrics (List[dict]): The metrics for each sample
-        eps (float, optional): The epsilon to avoid division by zero. Defaults to 1e-6.
-
-    Returns:
-        dict: The aggregated metrics for each class
+    Segmentation metrics (DICE, HD95, VOLSIM) are averaged across
+    images, ignoring NaN values.
     """
     aggregates = {}
-    keys = metrics[0].keys()
-    ## aggregate all tpfpfn
+    keys = results[0].keys()
+    eps = 1e-6
+
+    # Aggregate based on detection counts vs segmentation metrics
     for k in keys:
-        if k == 'INSTANCE_LEVEL':continue
-        if k == 'modality': continue
-        aggregates[k]=sum([samp[k] for samp in metrics])
-    ## compute per location prec, rec, mcc
+        if k == "gt_filename":
+            continue
+
+        # all values for this class across images
+        values = [result[k] for result in results]
+
+        if k.startswith(("TP_", "TN_", "FP_", "FN_", "support_")):
+            # Pool detection counts across images.
+            aggregates[k] = sum(values)
+
+        elif k.startswith(("DICE_", "HD95_", "VOLSIM_")):
+            # Average over valid seg-metric values for each class.
+            valid_values = [v for v in values if not np.isnan(v)]
+            aggregates[k] = np.mean(valid_values) if valid_values else np.nan
+            
     for i in range(1, N_CLASSES+1):
-        
-        # comp cls scores
-        aggregates[f"PRECISION_{i}"] = aggregates[f"TP_{i}"]/(aggregates[f"TP_{i}"]+aggregates[f"FP_{i}"]+eps)
-        aggregates[f"RECALL_{i}"] = aggregates[f"TP_{i}"]/(aggregates[f"TP_{i}"]+aggregates[f"FN_{i}"]+eps)
-        mcc_num = aggregates[f"TP_{i}"]*aggregates[f"TN_{i}"] - aggregates[f"FN_{i}"]*aggregates[f"FP_{i}"]
+        aggregates[f'is_present_{i}']=any([aggregates[f'{v}_{i}']!=0 for v in ['TP', 'FP', 'FN']])
+
+    # Obtain detection metrics from aggregated counts
+    for i in range(1, N_CLASSES + 1):
+        tp = aggregates[f"TP_{i}"]
+        fp = aggregates[f"FP_{i}"]
+        fn = aggregates[f"FN_{i}"]
+        tn = aggregates[f"TN_{i}"]
+        # precision = tp/(tp+fp)
+        aggregates[f"PRECISION_{i}"] = tp / (tp + fp + eps) if aggregates[f'is_present_{i}'] else np.nan
+        # recall = tp/(tp+fn)
+        aggregates[f"RECALL_{i}"] = tp / (tp + fn + eps) if aggregates[f'is_present_{i}'] else np.nan
+        # mcc = (tp*tn - fp*fn)/sqrt(...)
+        mcc_num = tp * tn - fn * fp
         mcc_den = math.sqrt(
-            (aggregates[f"TP_{i}"]+aggregates[f"FP_{i}"])
-            *
-            (aggregates[f"TP_{i}"]+aggregates[f"FN_{i}"])
-            *
-            (aggregates[f"TN_{i}"]+aggregates[f"FP_{i}"])
-            *
-            (aggregates[f"TN_{i}"]+aggregates[f"FN_{i}"])
-        ) + eps
-        aggregates[f"MCC_{i}"] = mcc_num/mcc_den
-        
-        # comp segmentation scores
-        aggregates[f"DICE_{i}"] /= (aggregates[f"TP_{i}"]+aggregates[f"FN_{i}"]+aggregates[f"FP_{i}"]+eps)
-        aggregates[f"HD95_{i}"] /= (aggregates[f"TP_{i}"]+aggregates[f"FN_{i}"]+aggregates[f"FP_{i}"]+eps)
-        aggregates[f"VOLSIM_{i}"] /= (aggregates[f"TP_{i}"]+aggregates[f"FN_{i}"]+aggregates[f"FP_{i}"]+eps)
+            (aggregates[f"TP_{i}"] + aggregates[f"FP_{i}"])
+            * (aggregates[f"TP_{i}"] + aggregates[f"FN_{i}"])
+            * (aggregates[f"TN_{i}"] + aggregates[f"FP_{i}"])
+            * (aggregates[f"TN_{i}"] + aggregates[f"FN_{i}"])
+        )
+        aggregates[f"MCC_{i}"] = mcc_num / (mcc_den+eps) if aggregates[f'is_present_{i}'] else np.nan
+
+    # aggregates with detection and segmentation metrics for each class
     return aggregates
 
-def evaluation_average(metrics: dict, ignore_absent=False) -> dict:
-    """Computes the average metrics across classes for ranking
 
-    Args:
-        metrics (dict): The per-class metrics
-
-    Returns:
-        dict: The average-across-classes metrics
+def nanmean(aggregates, metric_name) -> tuple[float, int]:
     """
-    averages = {"PRECISION": 0, "RECALL":0, "MCC":0, "DICE":0, "HD95":0, "VOLSIM":0}
-    present = 0
-    for i in range(1, N_CLASSES+1):
-        if ignore_absent:
-            if metrics[f"TP_{i}"]==0 and metrics[f"FN_{i}"]==0 and metrics[f"FP_{i}"]==0: continue
-        averages["PRECISION"]+=metrics[f"PRECISION_{i}"]
-        averages["RECALL"]+=metrics[f"RECALL_{i}"]
-        averages["MCC"]+=metrics[f"MCC_{i}"]
-        averages["DICE"]+=metrics[f"DICE_{i}"]
-        averages["HD95"]+=metrics[f"HD95_{i}"]
-        averages["VOLSIM"]+=metrics[f"VOLSIM_{i}"]
-        present += 1
-    return {k:float(v/present) for k, v in averages.items()}
+    Return the mean across valid class values and the number of valid classes.
+
+    NOTE: If the nanmean of a metric is still nan, ie no valid values,
+    for GC leaderboard display, convert the averaged nanmean from nan to 0
+    """
+    values = np.asarray(
+        [aggregates[f"{metric_name}_{i}"] for i in range(1, N_CLASSES + 1)]
+    )
+
+    #print(f"{metric_name} values = {values}")
+
+    valid_values = [v for v in values if not np.isnan(v)]
+
+    if not valid_values:
+        print(f"[WARNING] {metric_name} contains all NaN")
+        return 0, 0
+
+    return float(np.mean(valid_values)), len(valid_values)
+
+
+def evaluation_average(aggregates):
+    """
+    Compute leaderboard averages and track valid class counts.
+
+    The average reported here is across classes:
+        Across images -> evaluation_aggregation()
+        Across classes -> evaluation_average()
+    e.g.
+        DICE_i = average Dice for class i across valid images.
+        DICE = average of DICE_i across the 52 classes.
+
+    If the nanmean of a metric after averaging is still nan,
+    for GC leaderboard display, convert the averaged nanmean to 0
+    """
+
+    cls_avg = {}
+
+    for metric in ["PRECISION", "RECALL", "MCC", "DICE", "HD95", "VOLSIM"]:
+        mean, count = nanmean(aggregates, metric)
+        cls_avg[metric] = mean
+        cls_avg[f"count_valid_{metric}"] = count
+
+    return cls_avg
 
 class TopAneu26LikeEvaluator():
-    def __init__(self, pipeline, wdir, use_perfect_segmentations=False):
+    def __init__(self, pipeline, wdir, precomp_predictions=None):
         self.pipeline = pipeline
         self.wdir = Path(wdir) if wdir is not None else None
-        self.use_perf = use_perfect_segmentations
+        self.use_perf = precomp_predictions is None
+        self.precomp = Path(precomp_predictions)
         
     def eval_list(self, dir, files):
         results = []
         dir = Path(dir)
         for f in tqdm(files, desc='Evaluating'):
-            pred = self.pipeline(sitk.ReadImage(dir/'images'/f), 'MRA' if '_mr_' in f else 'CTA')
-            res = evaluation_function(sitk.GetArrayFromImage(pred), sitk.GetArrayFromImage(sitk.ReadImage(dir/'location_masks'/f.replace('_0000', ''))))
+            img = img
+            pred = sitk.GetImageFromArray(self.pipeline(img, 'MRA' if '_mr_' in f else 'CTA'))
+            pred.CopyInformation(img)
+            res = evaluation_function(pred, sitk.ReadImage(dir/'location_masks'/f.replace('_0000', '')))
             res['modality'] = 'MRA' if '_mr_' in f else 'CTA'
             results.append(res)
         aggregates = evaluation_aggregation(results)
@@ -379,8 +220,10 @@ class TopAneu26LikeEvaluator():
         results = []
         dir = Path(dir)
         for f in tqdm(os.listdir(dir), desc='Evaluating'):
-            pred = self.pipeline(sitk.ReadImage(dir/f), 'MRA' if '_mr_' in f else 'CTA')
-            res = evaluation_function(pred, sitk.GetArrayFromImage(sitk.ReadImage(dir/'location_masks'/f.replace('_0000', ''))))
+            img = sitk.ReadImage(dir/f)
+            pred = sitk.GetImageFromArray(self.pipeline(img, 'MRA' if '_mr_' in f else 'CTA'))
+            pred.CopyInformation(img)
+            res = evaluation_function(pred, sitk.ReadImage(dir/'location_masks'/f.replace('_0000', '')))
             res['modality'] = 'MRA' if '_mr_' in f else 'CTA'
             results.append(res)
         aggregates_all = evaluation_aggregation(results)
@@ -397,17 +240,17 @@ class TopAneu26LikeEvaluator():
             smp = testset[i]
             if not self.use_perf:
                 fn = str(testset.src/'images'/f"{smp['id']}_0000.nii.gz")
-                try: pred = self.pipeline(fn, smp['modality'])
+                try: pred = self.pipeline(fn, smp['modality'], base=self.precomp)
                 except: print('skipping', fn);continue
             else: pred = self.pipeline(smp, smp['modality'])
             assert isinstance(pred, np.ndarray)
             if self.wdir is not None:
-                os.makedirs(self.wdir/smp['id'].split('.')[0], exist_ok=True)
+                os.makedirs(self.wdir/'predictions'/smp['id'].split('.')[0], exist_ok=True)
                 gt = sitk.GetImageFromArray(smp['location_mask'])
                 p = sitk.GetImageFromArray(pred)
-                sitk.WriteImage(gt, self.wdir/smp['id'].split('.')[0]/'gt.nii.gz')
-                sitk.WriteImage(p, self.wdir/smp['id'].split('.')[0]/'pred.nii.gz')
-            res = evaluation_function(pred, smp['location_mask'])
+                sitk.WriteImage(gt, self.wdir/'predictions'/smp['id'].split('.')[0]/'gt.nii.gz')
+                sitk.WriteImage(p, self.wdir/'predictions'/smp['id'].split('.')[0]/'pred.nii.gz')
+            res = evaluation_function(sitk.GetImageFromArray(pred), sitk.GetImageFromArray(smp['location_mask']))
             res['modality'] = smp['modality']
             results.append(res)
             
@@ -427,6 +270,37 @@ class TopAneu26LikeEvaluator():
         pprint(averages)
         return results, aggregates, averages, discrepancies
     
+    def eval_ds_demo(self, testset, label_correct):
+        mapping = {v:k for k, v in location_mapping['labels'].items()}
+        results = []
+        discrepancies = {}
+        values = []
+        for i in tqdm(range(len(testset)), desc='Evaluating'):
+            smp = testset[i]
+            values += np.unique(smp['location_mask']).tolist()
+            pred = ((smp['location_mask']==label_correct)*label_correct).astype(np.uint8)
+            assert isinstance(pred, np.ndarray)
+            res = evaluation_function(sitk.GetImageFromArray(pred), sitk.GetImageFromArray(smp['location_mask']))
+            res['modality'] = smp['modality']
+            results.append(res)
+            
+            if self.use_perf:
+                cc, n = label(smp['location_mask'])
+                for i in range(1, n+1):
+                    slc = cc==i
+                    gt_v=np.median(smp['location_mask'][slc])
+                    pred_v=np.median(pred[slc])
+                    if gt_v!=pred_v:
+                        discrepancies[smp['id']+f'_{i}']={'GT':mapping[gt_v],'Predicted':mapping[pred_v]}
+            
+            
+        aggregates = evaluation_aggregation(results)
+        averages = evaluation_average(aggregates)
+        print('Results:')
+        pprint(averages)
+        pprint(Counter([lbl for lbl in values if lbl != 0]))
+        return results, aggregates, averages, discrepancies
+    
     def re_eval_by_modality(self, results, path):
         path = Path(path)
         
@@ -434,7 +308,7 @@ class TopAneu26LikeEvaluator():
         ct = [smp for smp in results if smp['modality']=='CTA']
         
         aggregates_mr = evaluation_aggregation(mr)
-        averages_mr = evaluation_average(aggregates_mr, ignore_absent=False)
+        averages_mr = evaluation_average(aggregates_mr)
         print('Results MRA:')
         pprint(averages_mr)
         self.plot(aggregates_mr, path/'per_cls_mr', 'Per Class Aggregates MRA')
@@ -442,7 +316,7 @@ class TopAneu26LikeEvaluator():
             json.dump(averages_mr, f, indent=4)
         
         aggregates_ct = evaluation_aggregation(ct)
-        averages_ct = evaluation_average(aggregates_ct, ignore_absent=False)
+        averages_ct = evaluation_average(aggregates_ct)
         print('Results CTA:')
         pprint(averages_ct)
         self.plot(aggregates_ct, path/'per_cls_ct', 'Per Class Aggregates CTA')
@@ -462,7 +336,6 @@ class TopAneu26LikeEvaluator():
                 'HD95': aggregates[f'HD95_{i}']
             }
             metrics_by_class[mapping[i]]=cur_vals
-        
         
         heatmap(metrics_by_class, title, str(path)+"_heatmap.png")
         spider(metrics_by_class, title, str(path)+"_cluttered_spider.png")

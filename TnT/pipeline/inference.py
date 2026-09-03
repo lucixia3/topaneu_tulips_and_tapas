@@ -29,7 +29,7 @@ class InferencePipeline():
 
     
     @torch.no_grad()  
-    def __call__(self, sample: sitk.Image, modality: str):
+    def __call__(self, sample: sitk.Image, modality: str, base=None):
         if isinstance(sample, sitk.Image):
             image, vmask, lmask = self._stage1(sample)
             spacing = sample.GetSpacing()
@@ -39,7 +39,6 @@ class InferencePipeline():
             lmask=sample['location_mask']!=0
             spacing = sample['spacing']
         elif isinstance(sample, str):
-            base = Path('/home/tue20260926/Data/TNT/s1/infersTs_altTrainer_best')
             sample = Path(sample)
             image = sitk.ReadImage(sample)
             msk = sitk.GetArrayFromImage(sitk.ReadImage(base/sample.name.replace('_0000', '')))
