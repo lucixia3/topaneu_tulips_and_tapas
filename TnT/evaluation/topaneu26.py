@@ -198,7 +198,7 @@ class TopAneu26LikeEvaluator():
         self.pipeline = pipeline
         self.wdir = Path(wdir) if wdir is not None else None
         self.use_perf = precomp_predictions is None
-        self.precomp = Path(precomp_predictions)
+        self.precomp = Path(precomp_predictions) if precomp_predictions is not None else None
         
     def eval_list(self, dir, files):
         results = []
