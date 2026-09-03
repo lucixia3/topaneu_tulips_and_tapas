@@ -101,7 +101,7 @@ def evaluation_aggregation(results: list):
     """
     aggregates = {}
     keys = results[0].keys()
-    eps = 1e-6
+    # eps = 1e-6
 
     # Aggregate based on detection counts vs segmentation metrics
     for k in keys:
@@ -120,8 +120,8 @@ def evaluation_aggregation(results: list):
             valid_values = [v for v in values if not np.isnan(v)]
             aggregates[k] = np.mean(valid_values) if valid_values else np.nan
             
-    for i in range(1, N_CLASSES+1):
-        aggregates[f'is_present_{i}']=any([aggregates[f'{v}_{i}']!=0 for v in ['TP', 'FP', 'FN']])
+    # for i in range(1, N_CLASSES+1):
+    #     aggregates[f'is_present_{i}']=any([aggregates[f'{v}_{i}']!=0 for v in ['TP', 'FP', 'FN']])
 
     # Obtain detection metrics from aggregated counts
     for i in range(1, N_CLASSES + 1):
@@ -130,9 +130,9 @@ def evaluation_aggregation(results: list):
         fn = aggregates[f"FN_{i}"]
         tn = aggregates[f"TN_{i}"]
         # precision = tp/(tp+fp)
-        aggregates[f"PRECISION_{i}"] = tp / (tp + fp + eps) if aggregates[f'is_present_{i}'] else np.nan
+        aggregates[f"PRECISION_{i}"] = tp / (tp + fp) if tp + fp else np.nan
         # recall = tp/(tp+fn)
-        aggregates[f"RECALL_{i}"] = tp / (tp + fn + eps) if aggregates[f'is_present_{i}'] else np.nan
+        aggregates[f"RECALL_{i}"] = tp / (tp + fn) if tp + fn else np.nan
         # mcc = (tp*tn - fp*fn)/sqrt(...)
         mcc_num = tp * tn - fn * fp
         mcc_den = math.sqrt(
@@ -141,7 +141,7 @@ def evaluation_aggregation(results: list):
             * (aggregates[f"TN_{i}"] + aggregates[f"FP_{i}"])
             * (aggregates[f"TN_{i}"] + aggregates[f"FN_{i}"])
         )
-        aggregates[f"MCC_{i}"] = mcc_num / (mcc_den+eps) if aggregates[f'is_present_{i}'] else np.nan
+        aggregates[f"MCC_{i}"] = mcc_num / mcc_den if mcc_den else np.nan
 
     # aggregates with detection and segmentation metrics for each class
     return aggregates
