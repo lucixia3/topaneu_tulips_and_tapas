@@ -316,4 +316,4 @@ def hd95_single_label(*, gt: sitk.Image, pred: sitk.Image, label: int) -> list[f
     hd100_score = max(d_100_ref2pred, d_100_pred2ref)
     # print("hd100_score = ", hd100_score)
 
-    return [hd95_score/HD95_UPPER_BOUND, hd100_score/HD95_UPPER_BOUND]
+    return [hd95_score, hd100_score]

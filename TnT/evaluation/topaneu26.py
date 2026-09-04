@@ -79,7 +79,7 @@ def evaluation_function(pred: sitk.Image, gt: sitk.Image, execute_in_docker=True
                 gt=gt,
                 pred=pred,
                 label=cls,
-            )[0]  # [hd95_score, hd100_score]
+            )[0]/290  # [hd95_score, hd100_score]
             result[f"VOLSIM_{cls}"] = vs_single_label(
                 gt=gt,
                 pred=pred,

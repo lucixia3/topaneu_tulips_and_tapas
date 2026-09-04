@@ -309,11 +309,6 @@ class TopAneu_TnTs2_DS(Dataset):
         if include_bg:
             n_bg = round(n_real_patches*include_bg)
             extra_patches += self._make_bg_patches(n_bg)
-        if include_s1_pred:
-            for a in self.aneus:
-                cpy = copy.deepcopy(a)
-                cpy['trigger_s1']=True
-                extra_patches.append(cpy)
         if syn_samples:
             for smp in tqdm.tqdm(syn_samples, desc='Generating Synthetic Samples'):
                 match_idx = [i for i, c in enumerate(self.image_ds.cases) if c==(smp["id"]+"_0000.nii.gz")]
@@ -335,6 +330,11 @@ class TopAneu_TnTs2_DS(Dataset):
                     'make_syn_aneu_msk': True,
                 }
                 extra_patches.append(a)
+        if include_s1_pred:
+            for a in self.aneus:
+                cpy = copy.deepcopy(a)
+                cpy['trigger_s1']=True
+                extra_patches.append(cpy)
             
         self.aneus+=extra_patches
         
