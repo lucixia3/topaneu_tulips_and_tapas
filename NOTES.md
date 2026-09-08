@@ -1,7 +1,21 @@
 # Experiments
 
-## Baseline - No data enrichment
+## No Pretraining
+### CFG2 No data stuff
+    "PRECISION": 0.3292620078334364,
+    "count_valid_PRECISION": 21,
+    "RECALL": 0.27849927849927847,
+    "count_valid_RECALL": 33,
+    "MCC": 0.38228594461616733,
+    "count_valid_MCC": 18,
+    "DICE": 0.11301880544062505,
+    "count_valid_DICE": 36,
+    "HD95": 0.8606372465699011,
+    "count_valid_HD95": 36,
+    "VOLSIM": 0.11994788177514001,
+    "count_valid_VOLSIM": 36
 
+## Baseline - No data enrichment
 ### CFG1: Base transforms = CTA clipping, Normalization and Noise
     "PRECISION": 0.35599078341013823,
     "count_valid_PRECISION": 31,
@@ -59,7 +73,6 @@
     "count_valid_VOLSIM": 38
 
 ## CFG2 + Data Enrichment
-
 ### Background samples
     "PRECISION": 0.3993855606758832,
     "count_valid_PRECISION": 31,
@@ -101,3 +114,4 @@
     "count_valid_HD95": 37,
     "VOLSIM": 0.2334473802926509,
     "count_valid_VOLSIM": 37
+
