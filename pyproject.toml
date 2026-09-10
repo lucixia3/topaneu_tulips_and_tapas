@@ -27,6 +27,7 @@ dependencies = [
   "scikit-learn",
   "accelerate",
   "nnunetv2",
+  "batchgenerators",
 ]
 
 [tool.setuptools.packages.find]

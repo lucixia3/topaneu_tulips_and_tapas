@@ -5,7 +5,7 @@ from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 import torch
 
 
-def get_s1(path, device, folds=(0,1,2,3,4,)):
+def get_s1(path, device, folds=(0,1,2,3,4,), verbose=False):
     os.environ['nnUNet_extTrainer'] = mixed()
     predictor = nnUNetPredictor(
                 tile_step_size=0.5,
@@ -13,9 +13,9 @@ def get_s1(path, device, folds=(0,1,2,3,4,)):
                 use_mirroring=True,
                 perform_everything_on_device=True,
                 device=torch.device(device),
-                verbose=False,
-                verbose_preprocessing=False,
-                allow_tqdm=False,
+                verbose=verbose,
+                verbose_preprocessing=verbose,
+                allow_tqdm=verbose,
             )
         
     predictor.initialize_from_trained_model_folder(
