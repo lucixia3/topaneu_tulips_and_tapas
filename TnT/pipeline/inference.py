@@ -141,7 +141,7 @@ class InferencePipeline():
             
     
     def _make_s1(self, path):
-        return get_s1(path, self.device, verbose=True)
+        return get_s1(path, self.device, verbose=True, use_mirroring=False)
     
     def _make_s2(self, path):
         if isinstance(path, dict):

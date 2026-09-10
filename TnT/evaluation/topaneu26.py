@@ -266,7 +266,14 @@ class TopAneu26LikeEvaluator():
                     pred_v=np.median(pred[slc])
                     if gt_v!=pred_v:
                         discrepancies[smp['id']+f'_{i}']={'GT':mapping[gt_v],'Predicted':mapping[pred_v]}
-            
+            else:
+                cc, n = label(smp['location_mask'])
+                for i in range(1, n+1):
+                    slc = cc==i
+                    gt_v=np.median(smp['location_mask'][slc])
+                    pred_v=np.median(pred[slc])
+                    if gt_v!=pred_v:
+                        discrepancies[smp['id']+f'_{i}']={'GT':mapping[gt_v],'Predicted':mapping[pred_v]}
             
         aggregates = evaluation_aggregation(results)
         averages = evaluation_average(aggregates)

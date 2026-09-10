@@ -30,37 +30,35 @@ if __name__ == '__main__':
     ## Prep pipeline
     pl = InferencePipeline(S1_path, S2_path, PATCH_SIZE_VX, PATCH_SIZE_MM, use_tta=True, transforms=trnsfrm)
     
-    res = pl(sitk.ReadImage('/home/tue20260926/Data/Previously discarded/images/topaneu_center2_mr_043_0000.nii.gz'), 'MRA')
+    ## Prep data
+    test = TopAneuDS.load('test.json')
+    ## Prep evaluator
+    outdir = Path(S2_path).parent/'s1'
+    ev = TopAneu26LikeEvaluator(pl, outdir, precomp_predictions='/home/tue20260926/Data/TNT/s1/infersTs_altTrainer_best')
+    res, agg, avg, disc = ev.eval_ds(test)#ev.eval_list(test.src, test.cases)
+    with open(f'{outdir}/classification_failure.json', 'w') as f:
+            json.dump(disc, f, indent=4)
     
-    # ## Prep data
-    # test = TopAneuDS.load('test.json')
-    # ## Prep evaluator
-    # outdir = Path(S2_path).parent/'s1'
-    # ev = TopAneu26LikeEvaluator(pl, outdir, precomp_predictions='/home/tue20260926/Data/TNT/s1/infersTs_altTrainer_best')
-    # res, agg, avg, disc = ev.eval_ds(test)#ev.eval_list(test.src, test.cases)
-    # with open(f'{outdir}/classification_failure.json', 'w') as f:
-    #         json.dump(disc, f, indent=4)
-    
-    # os.makedirs(outdir, exist_ok=True)
-    # ev.plot(agg, f'{outdir}/per_clas')
-    # ev.re_eval_by_modality(res, outdir)
-    # with open(f'{outdir}/per_cls.json', 'w') as f:
-    #     json.dump(avg, f, indent=4)
+    os.makedirs(outdir, exist_ok=True)
+    ev.plot(agg, f'{outdir}/per_clas')
+    ev.re_eval_by_modality(res, outdir)
+    with open(f'{outdir}/per_cls.json', 'w') as f:
+        json.dump(avg, f, indent=4)
 
-    # ## Prep pipeline
-    # pl = InferencePipeline(S1_path, S2_path, PATCH_SIZE_VX, PATCH_SIZE_MM, use_tta=True, transforms=trnsfrm)
+    ## Prep pipeline
+    pl = InferencePipeline(S1_path, S2_path, PATCH_SIZE_VX, PATCH_SIZE_MM, use_tta=True, transforms=trnsfrm)
        
-    # ## Prep data
-    # test = TopAneuDS.load('test.json')
-    # ## Prep evaluator
-    # outdir = Path(S2_path).parent/'perfect'
-    # ev = TopAneu26LikeEvaluator(pl, outdir, precomp_predictions=None)
-    # res, agg, avg, disc = ev.eval_ds(test)#ev.eval_list(test.src, test.cases)
-    # with open(f'{outdir}/classification_failure.json', 'w') as f:
-    #         json.dump(disc, f, indent=4)
+    ## Prep data
+    test = TopAneuDS.load('test.json')
+    ## Prep evaluator
+    outdir = Path(S2_path).parent/'perfect'
+    ev = TopAneu26LikeEvaluator(pl, outdir, precomp_predictions=None)
+    res, agg, avg, disc = ev.eval_ds(test)#ev.eval_list(test.src, test.cases)
+    with open(f'{outdir}/classification_failure.json', 'w') as f:
+            json.dump(disc, f, indent=4)
     
-    # os.makedirs(outdir, exist_ok=True)
-    # ev.plot(agg, f'{outdir}/per_clas')
-    # ev.re_eval_by_modality(res, outdir)
-    # with open(f'{outdir}/per_cls.json', 'w') as f:
-    #     json.dump(avg, f, indent=4)
+    os.makedirs(outdir, exist_ok=True)
+    ev.plot(agg, f'{outdir}/per_clas')
+    ev.re_eval_by_modality(res, outdir)
+    with open(f'{outdir}/per_cls.json', 'w') as f:
+        json.dump(avg, f, indent=4)
