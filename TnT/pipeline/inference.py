@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from pathlib import Path
 
 class InferencePipeline():
-    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=False, transforms=None):
+    def __init__(self, s1_model_path, s2_model_path, patch_size_vx=64, patch_size_mm=35, device='cuda', use_tta=False, transforms=None, use_mirroring=True):
         
         self.patch_size_mm = patch_size_mm
         self.s2_transforms = transforms
@@ -19,7 +19,7 @@ class InferencePipeline():
         self.tta = use_tta
         
         ## the models
-        if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path)
+        if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path, use_mirroring=use_mirroring)
         if s2_model_path is not None: 
             if isinstance(s2_model_path, TnTS2) or isinstance(s2_model_path, TnTS2_Specific): 
                 self.s2_model = s2_model_path
@@ -140,8 +140,8 @@ class InferencePipeline():
         return decoded_label
             
     
-    def _make_s1(self, path):
-        return get_s1(path, self.device, verbose=True, use_mirroring=False)
+    def _make_s1(self, path, verbose=True, use_mirroring=True):
+        return get_s1(path, self.device, verbose=verbose, use_mirroring=use_mirroring)
     
     def _make_s2(self, path):
         if isinstance(path, dict):
