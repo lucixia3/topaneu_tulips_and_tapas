@@ -21,7 +21,7 @@ class InferencePipeline():
         ## the models
         if s1_model_path is not None: self.s1_model = self._make_s1(s1_model_path, use_mirroring=use_mirroring)
         if s2_model_path is not None: 
-            if isinstance(s2_model_path, TnTS2) or isinstance(s2_model_path, TnTS2_Specific): 
+            if isinstance(s2_model_path, TnTS2) or isinstance(s2_model_path, TnTS2_Specific) or isinstance(s2_model_path, TnTS2_ViT): 
                 self.s2_model = s2_model_path
                 self.s2_model.to(self.device)
                 self.s2_model.eval()
@@ -149,10 +149,16 @@ class InferencePipeline():
             predictor.to(self.device)
             predictor.eval()
         elif isinstance(path, str) or isinstance(path, Path):
-            predictor = TnTS2()
-            predictor.load(path)
-            predictor.to(self.device)
-            predictor.eval()
+            try:
+                predictor = TnTS2()
+                predictor.load(path)
+                predictor.to(self.device)
+                predictor.eval()
+            except:
+                predictor = TnTS2_ViT()
+                predictor.load(path)
+                predictor.to(self.device)
+                predictor.eval()
         else:
             raise ValueError(f'Cannot build S2 model from input type {type(path)}, needs to be path, str or dict of paths/strs for modality speficif modeling')
         return predictor
