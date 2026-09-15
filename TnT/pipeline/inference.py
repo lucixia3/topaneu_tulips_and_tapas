@@ -1,6 +1,6 @@
 from TnT.utils.transforms import get_inference_transforms, DecodeAneu
 from TnT.utils.dataloader import TopAneu_TnTs2_DS
-from TnT.model.stage2 import TnTS2
+from TnT.model.stage2 import TnTS2, TnTS2_ViT
 from TnT.model.stage1 import get_s1
 from TnT.model.modality_specific import TnTS2_Specific
 import SimpleITK as sitk, numpy as np, torch
