@@ -58,6 +58,9 @@ try:
     from tqdm.auto import tqdm
 except Exception:
     tqdm = None
+    
+def find_dir():
+    return os.path.dirname(os.path.realpath(__file__))
 
 print("Loaded nnUNetTrainer from:", __file__)
 # ============================================================
