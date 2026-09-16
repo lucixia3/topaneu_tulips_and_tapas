@@ -205,19 +205,33 @@ class TopAneu26LikeEvaluator():
         self.precomp = Path(precomp_predictions) if precomp_predictions is not None else None
         
     def eval_list(self, dir, files):
+        mapping = {v:k for k, v in location_mapping['labels'].items()}
         results = []
+        discrepancies = {}
         dir = Path(dir)
         for f in tqdm(files, desc='Evaluating'):
             img = sitk.ReadImage(dir/'images'/f)
             pred = self.pipeline(img, 'MRA' if '_mr_' in f else 'CTA')
-            res = evaluation_function(pred, sitk.ReadImage(dir/'location_masks'/f.replace('_0000', '')))
+            ref = sitk.ReadImage(dir/'location_masks'/f.replace('_0000', ''))
+            res = evaluation_function(pred, ref)
             res['modality'] = 'MRA' if '_mr_' in f else 'CTA'
             results.append(res)
+            
+            ref_arr = sitk.GetArrayFromImage(ref)
+            pred_arr = sitk.GetArrayFromImage(pred)
+            cc, n = label(ref_arr)
+            for i in range(1, n+1):
+                slc = cc==i
+                gt_v=np.median(ref_arr[slc])
+                pred_v=np.median(pred_arr[slc])
+                if gt_v!=pred_v:
+                    discrepancies[f.split('.')[0]+f'_{i}']={'GT':mapping[gt_v],'Predicted':mapping[pred_v]}
+                    
         aggregates = evaluation_aggregation(results)
         averages = evaluation_average(aggregates)
         print('Results:')
         pprint(averages)
-        return results, aggregates, averages
+        return results, aggregates, averages, discrepancies
                 
     def eval_dir(self, dir):
         results = []
