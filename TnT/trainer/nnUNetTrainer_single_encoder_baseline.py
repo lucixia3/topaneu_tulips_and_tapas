@@ -1,3 +1,5 @@
+
+
 # nnunetv2/training/nnUNetTrainer/nnUNetTrainer_single_encoder.py
 
 # ============================================================
@@ -68,9 +70,6 @@ print("Loaded nnUNetTrainer from:", __file__)
 # NOTE: If no pattern matches, default to 0 (CT) to be safe.
 _PAT_MR = re.compile(r"(?:^mr[a]?_|_mr[a]?_|_mr[a]?$)", re.IGNORECASE)
 _PAT_CT = re.compile(r"(?:^ct[a]?_|_ct[a]?_|_ct[a]?$)", re.IGNORECASE)
-
-def find_dir():
-    return os.path.dirname(os.path.realpath(__file__))
 
 def _infer_mid_from_identifier(identifier: str) -> int:
     s = str(identifier)
@@ -1486,3 +1485,4 @@ class nnUNetTrainer_single_encoder_baseline(nnUNetTrainer):
             self.on_epoch_end()
 
         self.on_train_end()
+
