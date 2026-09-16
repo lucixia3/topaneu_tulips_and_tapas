@@ -101,7 +101,7 @@ class TnTS2(nn.Module):
         return loc_a_loss+loc_v_loss+lat_loss
     
 class TnTS2_ViT(nn.Module):
-    def __init__(self, n_locs_v=21, n_locs_a=29, n_lats=2, img_size=64, patch_size=14):
+    def __init__(self, n_locs_v=21, n_locs_a=29, n_lats=2, img_size=64, patch_size=8):
         super().__init__()
         self.n_locs_v, self.n_locs_a, self.n_lats = n_locs_v, n_locs_a, n_lats
         self.bb = vit.ViT(in_channels=3, img_size=(img_size,img_size,img_size), patch_size=(patch_size,patch_size,patch_size), dropout_rate=0.1) # outputs [B, 768]

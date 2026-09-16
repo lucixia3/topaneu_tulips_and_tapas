@@ -94,6 +94,8 @@
     "count_valid_RECALL": 33,
     "MCC": 0.5048641591865631,
     "count_valid_MCC": 26,
+    "F1": 0.3677970177970178,
+    "count_valid_F1": 36,
     "DICE": 0.23564049168141768,
     "count_valid_DICE": 36,
     "HD95": 0.7015273972131667,
@@ -115,3 +117,23 @@
     "VOLSIM": 0.2334473802926509,
     "count_valid_VOLSIM": 37
 
+## Misc
+
+### CFG2 + S1 in training + S1 in validation
+    "PRECISION": 0.4226984126984127,
+    "count_valid_PRECISION": 30,
+    "RECALL": 0.43629148629148634,
+    "count_valid_RECALL": 33,
+    "MCC": 0.48347590932904444,
+    "count_valid_MCC": 26,
+    "F1": 0.34726024726024723,
+    "count_valid_F1": 37,
+    "DICE": 0.2237568960124038,
+    "count_valid_DICE": 37,
+    "HD95": 0.7147680148200639,
+    "count_valid_HD95": 37,
+    "VOLSIM": 0.24135172082562475,
+    "count_valid_VOLSIM": 37
+
+### CFG2 + S1 in training + S1 in validation + vit
+    garbage
