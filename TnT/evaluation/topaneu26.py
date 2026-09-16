@@ -209,8 +209,7 @@ class TopAneu26LikeEvaluator():
         dir = Path(dir)
         for f in tqdm(files, desc='Evaluating'):
             img = sitk.ReadImage(dir/'images'/f)
-            pred = sitk.GetImageFromArray(self.pipeline(img, 'MRA' if '_mr_' in f else 'CTA'))
-            pred.CopyInformation(img)
+            pred = self.pipeline(img, 'MRA' if '_mr_' in f else 'CTA')
             res = evaluation_function(pred, sitk.ReadImage(dir/'location_masks'/f.replace('_0000', '')))
             res['modality'] = 'MRA' if '_mr_' in f else 'CTA'
             results.append(res)

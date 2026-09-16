@@ -76,7 +76,15 @@ class InferencePipeline():
         segmentation = self.s1_model.predict_single_npy_array(
             img_array, props, None, None, False
         ).astype(np.uint8)
-
+        
+        spacing = image.GetSpacing()
+        mm3_per_voxel = spacing[0]*spacing[1]*spacing[2]
+        cc, n = label(segmentation)
+        for i in range(1, n+1):
+            object_size = np.sum(cc==i)*mm3_per_voxel
+            if object_size < 2:
+                segmentation[cc==i]=0 
+        
         vmask_arr = segmentation==1
         lmask_arr = segmentation==2
         
