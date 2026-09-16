@@ -4,7 +4,7 @@ from TnT.model.stage2 import TnTS2, TnTS2_ViT
 from TnT.model.stage1 import get_s1
 from TnT.model.modality_specific import TnTS2_Specific
 import SimpleITK as sitk, numpy as np, torch
-from scipy.ndimage import label
+from scipy.ndimage import label, generate_binary_structure
 from pathlib import Path
 import torch.nn.functional as F
 from pathlib import Path
@@ -77,16 +77,16 @@ class InferencePipeline():
             img_array, props, None, None, False
         ).astype(np.uint8)
         
+        vmask_arr = segmentation==1
+        lmask_arr = segmentation==2
+        
         spacing = image.GetSpacing()
         mm3_per_voxel = spacing[0]*spacing[1]*spacing[2]
-        cc, n = label(segmentation)
+        cc, n = label(lmask_arr, structure=generate_binary_structure(3, 3))
         for i in range(1, n+1):
             object_size = np.sum(cc==i)*mm3_per_voxel
             if object_size < 2:
-                segmentation[cc==i]=0 
-        
-        vmask_arr = segmentation==1
-        lmask_arr = segmentation==2
+                lmask_arr[cc==i]=0 
         
         return img_array.squeeze(0), vmask_arr, lmask_arr
         
