@@ -67,9 +67,9 @@ class InferencePipeline():
     def _stage1(self, image: sitk.Image):
         # nnU-Net expects numpy arrays shaped (channels, z, y, x)
         img_array = sitk.GetArrayFromImage(image).astype(np.float32)  # (z, y, x)
-        img_array = img_array[np.newaxis, ...]  # -> (1, z, y, x)
+        img_array = img_array[np.newaxis, ...]  # -> (1, z, y, x) H, D, W
     
-        # sitk spacing is (x, y, z); nnU-Net wants (z, y, x)
+        # sitk spacing is (x, y, z); nnU-Net wants (z, y, x)W, D, H
         nnunet_spacing = list(image.GetSpacing())[::-1]
         props = {"spacing": nnunet_spacing}
     
