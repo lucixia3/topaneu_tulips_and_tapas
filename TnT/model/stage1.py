@@ -24,5 +24,5 @@ def get_s1(path, device, folds=(0,1,2,3,4,), verbose=False, use_mirroring=True):
         checkpoint_name="checkpoint_best.pth",
         
     )
-    predictor.allowed_mirroring_axes = (0,)
+    predictor.allowed_mirroring_axes = (0,2,)
     return predictor
